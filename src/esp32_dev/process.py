@@ -7,6 +7,7 @@ import grp
 import logging
 import os
 import platform
+import pwd
 import shutil
 import subprocess
 import sys
@@ -61,6 +62,9 @@ class Host(Protocol):
 
     def is_root(self) -> bool:
         """Return whether the process is running as root."""
+
+    def shell(self) -> str:
+        """Return the user's login shell path."""
 
 
 class Runner(Protocol):
@@ -124,6 +128,15 @@ class SystemHost:
 
     def is_root(self) -> bool:
         return self.euid() == 0
+
+    def shell(self) -> str:
+        env = os.environ.get("SHELL")
+        if env:
+            return env
+        try:
+            return pwd.getpwuid(os.getuid()).pw_shell
+        except (KeyError, OSError):
+            return "/bin/sh"
 
 
 class CommandRunner:

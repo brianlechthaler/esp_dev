@@ -25,10 +25,37 @@ def test_system_host_facts() -> None:
     assert host.home().exists()
     assert host.os_release_path() == Path("/etc/os-release")
     assert host.is_root() == (host.euid() == 0)
+    assert host.shell()
     root = host.group_members("root")
     assert root is not None
     assert isinstance(root[0], int)
     assert host.group_members("definitely-no-such-group-esp32-dev") is None
+
+
+def test_system_host_shell_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SHELL", "/bin/zsh")
+    assert SystemHost().shell() == "/bin/zsh"
+
+
+def test_system_host_shell_from_passwd(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SHELL", raising=False)
+
+    class Info:
+        pw_shell = "/usr/bin/fish"
+
+    monkeypatch.setattr("esp32_dev.process.pwd.getpwuid", lambda _uid: Info())
+    assert SystemHost().shell() == "/usr/bin/fish"
+
+
+@pytest.mark.parametrize("exc", [KeyError("missing"), OSError("denied")])
+def test_system_host_shell_fallback(monkeypatch: pytest.MonkeyPatch, exc: Exception) -> None:
+    monkeypatch.delenv("SHELL", raising=False)
+
+    def boom(_uid: int) -> None:
+        raise exc
+
+    monkeypatch.setattr("esp32_dev.process.pwd.getpwuid", boom)
+    assert SystemHost().shell() == "/bin/sh"
 
 
 def test_run_rejects_empty_command(tmp_path: Path) -> None:

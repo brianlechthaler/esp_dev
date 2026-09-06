@@ -647,8 +647,10 @@ def test_run_setup_full(tmp_path: Path) -> None:
     assert runner.has_args("apt-get", "install")
     assert runner.has_args("git", "clone")
     assert config.activate_script.is_file()
+    assert config.activate_fish.is_file()
     assert config.venv_python.is_file()
     assert runner.has_args("usermod")
+    assert (tmp_path / ".bashrc").is_file()
 
 
 def test_run_setup_all_skips(tmp_path: Path) -> None:
@@ -660,12 +662,15 @@ def test_run_setup_all_skips(tmp_path: Path) -> None:
         skip_idf=True,
         skip_udev=True,
         skip_dialout=True,
+        skip_shell=True,
     )
     runner = FakeRunner()
     run_setup(config, runner, FakeHost(tmp_path))
     assert not runner.has_args("apt-get")
     assert not runner.has_args("git", "clone")
     assert config.activate_script.is_file()
+    assert config.activate_fish.is_file()
+    assert not (tmp_path / ".bashrc").exists()
 
 
 def test_run_setup_skip_one_python_tool(tmp_path: Path) -> None:
@@ -712,3 +717,4 @@ def test_run_setup_dry_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     captured = capsys.readouterr()
     assert "Dry run complete" in captured.out
     assert not config.activate_script.exists()
+    assert not (tmp_path / ".bashrc").exists()

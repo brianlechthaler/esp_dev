@@ -87,6 +87,7 @@ def test_config_from_args(tmp_path: Path) -> None:
     assert config.force is True
     assert config.shallow_idf is False
     assert config.idf_version == "v6.1"
+    assert config.skip_shell is False
 
 
 def test_prefix_from_args(tmp_path: Path) -> None:
@@ -99,6 +100,12 @@ def test_config_from_args_default_is_shallow(tmp_path: Path) -> None:
     args = parser.parse_args(["setup", "--prefix", str(tmp_path)])
     assert config_from_args(args).shallow_idf is True
     assert config_from_args(args).idf_version == "latest"
+
+
+def test_config_from_args_skip_shell(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["setup", "--prefix", str(tmp_path), "--skip-shell"])
+    assert config_from_args(args).skip_shell is True
 
 
 def test_setup_success(

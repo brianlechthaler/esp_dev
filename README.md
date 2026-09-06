@@ -5,15 +5,22 @@ Linux setup for **ESP-IDF**, **PlatformIO**, and **esptool**, including distro p
 ## Quick start
 
 ```bash
-./scripts/setup-esp32-dev.sh
-source ~/.esp32-dev/activate.sh
+. ./scripts/install.sh
+```
+
+That installs ESP-IDF, PlatformIO, and esptool, then hooks **bash**, **zsh**, **fish**, **ksh**, and POSIX **sh** so new interactive shells activate the environment automatically. Sourcing the script also activates the current bash or zsh session. Running it without sourcing still hooks future shells:
+
+```bash
+./scripts/install.sh
 ```
 
 Preview actions without changing the system:
 
 ```bash
-./scripts/setup-esp32-dev.sh setup --dry-run
+./scripts/install.sh --dry-run
 ```
+
+The older wrapper `./scripts/setup-esp32-dev.sh` still works; pass a subcommand such as `status` or `blink` to it.
 
 ## Commands
 
@@ -25,19 +32,24 @@ Preview actions without changing the system:
 | `verify` | Same as `status`, but exit `1` if required tools are missing |
 | `blink` | Verify tools, upload a LED blink sketch, and confirm on/off over serial |
 
-Useful `setup` flags: `--prefix`, `--idf-version`, `--idf-targets esp32,esp32s3`, `--skip-idf`, `--skip-platformio`, `--skip-esptool`, `--skip-packages`, `--no-sudo`, `--force`, `--full-idf-clone`.
+Useful `setup` flags: `--prefix`, `--idf-version`, `--idf-targets esp32,esp32s3`, `--skip-idf`, `--skip-platformio`, `--skip-esptool`, `--skip-packages`, `--skip-shell`, `--no-sudo`, `--force`, `--full-idf-clone`.
 
 By default the installer uses the **latest GitHub release** of ESP-IDF (currently resolved at setup time; pin with `--idf-version v6.1` if you need a specific tag). esptool and PlatformIO are installed with `pip install --upgrade` and no upper-bound pin, so they also track the latest PyPI release.
 
 ESP-IDF is cloned with `--depth 1` and shallow submodules by default so you do not download years of git history. Git progress is printed live. A full-history clone is still available with `--full-idf-clone`.
 
-If you interrupt setup, re-run `./scripts/setup-esp32-dev.sh resume` (or `setup`). Incomplete `esp-idf` trees and `*.partial` staging directories are removed automatically; a complete clone is kept and `install.sh` is run again.
+If you interrupt setup, re-run `./scripts/install.sh` (or `./scripts/setup-esp32-dev.sh resume`). Incomplete `esp-idf` trees and `*.partial` staging directories are removed automatically; a complete clone is kept and ESP-IDF `install.sh` is run again.
 
-After setup:
+After setup, new interactive shells load the tools automatically. In the current shell, or if you passed `--skip-shell`:
+
+- `source ~/.esp32-dev/activate.sh` (bash, zsh, ksh, sh)
+- `source ~/.esp32-dev/activate.fish` (fish)
+
+Then:
 
 - `python -m esptool`
 - `pio --help`
-- `idf.py --help` (after `source ~/.esp32-dev/activate.sh`)
+- `idf.py --help`
 
 USB serial access may require logging out and back in after being added to `dialout`.
 

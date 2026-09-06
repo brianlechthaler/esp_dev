@@ -25,6 +25,7 @@ class FakeHost:
         default_factory=lambda: {"dialout": (20, ["tester"])}
     )
     os_release: str = "ID=debian\nID_LIKE=debian\n"
+    shell_path: str = "/bin/bash"
 
     def __post_init__(self) -> None:
         self._os_release_path = self.tmp_path / "os-release"
@@ -59,6 +60,9 @@ class FakeHost:
 
     def is_root(self) -> bool:
         return self.euid() == 0
+
+    def shell(self) -> str:
+        return self.shell_path
 
 
 class FakeRunner:

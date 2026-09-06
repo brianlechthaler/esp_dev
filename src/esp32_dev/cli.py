@@ -103,6 +103,11 @@ def _add_setup_flags(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Do not add the user to the dialout group",
     )
+    parser.add_argument(
+        "--skip-shell",
+        action="store_true",
+        help="Do not add auto-activation hooks to shell rc files",
+    )
     parser.add_argument("--no-sudo", action="store_true", help="Never prefix commands with sudo")
     parser.add_argument(
         "--dry-run",
@@ -162,6 +167,7 @@ def config_from_args(args: argparse.Namespace) -> SetupConfig:
         skip_idf=args.skip_idf,
         skip_udev=args.skip_udev,
         skip_dialout=args.skip_dialout,
+        skip_shell=args.skip_shell,
         use_sudo=not args.no_sudo,
         dry_run=args.dry_run,
         force=args.force,
