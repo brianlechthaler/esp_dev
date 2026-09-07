@@ -19,6 +19,8 @@ FROM base AS test
 
 COPY tests ./tests
 COPY Makefile ./
+COPY install.py ./
+COPY esp32-dev ./esp32-dev
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends make \

@@ -15,6 +15,19 @@ Preview actions without changing the system:
 ./scripts/setup-esp32-dev.sh setup --dry-run
 ```
 
+Docs: [Getting started](docs/getting-started.md) · [Agent skill](docs/features/agent-skill.md)
+
+## Agent skill
+
+Coding agents should reuse `~/.esp32-dev` instead of pip-installing or cloning PlatformIO, ESP-IDF, or esptool. Install the skill into Cursor (or another supported tool):
+
+```bash
+python3 install.py -a cursor -y              # this project: .cursor/skills/esp32-dev
+python3 install.py -g -a cursor -y           # user-wide: ~/.cursor/skills/esp32-dev
+```
+
+Flags match [brianlechthaler/skills](https://github.com/brianlechthaler/skills) (`-g`, `--copy`, `--uninstall`, `-a`). See [Agent skill](docs/features/agent-skill.md).
+
 ## Commands
 
 | Command | Purpose |
