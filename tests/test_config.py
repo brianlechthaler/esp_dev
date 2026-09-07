@@ -30,7 +30,9 @@ def test_config_paths_and_needs_venv(tmp_path: Path) -> None:
     assert config.idf_partial_dir == config.prefix / "esp-idf.partial"
     assert config.venv_partial_dir == config.prefix / "venv.partial"
     assert config.activate_script == config.prefix / "activate.sh"
+    assert config.activate_fish == config.prefix / "activate.fish"
     assert config.needs_venv is True
+    assert config.skip_shell is False
 
 
 def test_needs_venv_false_when_both_skipped(tmp_path: Path) -> None:

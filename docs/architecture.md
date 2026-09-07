@@ -26,7 +26,8 @@ Incomplete clones and virtualenvs are written next to the real paths with a `.pa
 
 ```mermaid
 flowchart LR
-  Wrapper["scripts/setup-esp32-dev.sh"] --> CLI["esp32-dev / python -m esp32_dev"]
+  InstallSh["scripts/install.sh"] --> CLI["esp32-dev / python -m esp32_dev"]
+  Wrapper["scripts/setup-esp32-dev.sh"] --> CLI
   BlinkSh["scripts/blink-esp32.sh"] --> CLI
   CLI --> Setup["setup / resume"]
   CLI --> Check["status / verify"]
@@ -37,12 +38,14 @@ flowchart LR
   Prefix --> Act["activate.sh"]
   Setup --> Udev["udev rules"]
   Setup --> Dialout["dialout group"]
+  Setup --> Hooks["shell rc hooks"]
 ```
 
 | Piece | Responsibility |
 |-------|----------------|
 | `cli.py` | Argument parsing and dispatch |
 | `installer.py` | Packages, venv, ESP-IDF, udev, dialout, activate script, status |
+| `shell.py` | `activate.sh` / `activate.fish` and interactive-shell rc hooks |
 | `blink.py` | Chip detect, PlatformIO blink sketch, serial confirm |
 | `detect.py` | `/etc/os-release` → distro family and package list |
 | `releases.py` | Resolve `latest` / `stable` to the current ESP-IDF GitHub release tag |
@@ -62,14 +65,17 @@ flowchart TD
   E --> F["udev rules"]
   F --> G["dialout"]
   G --> H["Write activate.sh"]
+  H --> I["Shell rc hooks"]
 ```
 
-Each of C–G can be skipped with a `--skip-*` flag. Details: [Setup](features/setup.md).
+Each of C–G and I can be skipped with a `--skip-*` flag. Details: [Setup](features/setup.md).
 
 ## Invocation
 
 | How | Behavior |
 |-----|----------|
+| `. ./scripts/install.sh` | Runs `setup`, hooks future shells, activates this bash/zsh session |
+| `./scripts/install.sh` | Same setup and hooks, without activating the current shell |
 | `./scripts/setup-esp32-dev.sh` (no args) | Runs `python3 -m esp32_dev setup` |
 | `./scripts/setup-esp32-dev.sh <args>` | Passes args through to `python3 -m esp32_dev` |
 | `./scripts/blink-esp32.sh` | `python3 -m esp32_dev blink` |

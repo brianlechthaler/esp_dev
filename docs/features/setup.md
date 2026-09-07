@@ -15,6 +15,8 @@ ESP-IDF is cloned with `--depth 1` and shallow submodules. Use `--full-idf-clone
 ## Usage
 
 ```bash
+. ./scripts/install.sh
+./scripts/install.sh --dry-run
 ./scripts/setup-esp32-dev.sh
 ./scripts/setup-esp32-dev.sh setup --dry-run
 ./scripts/setup-esp32-dev.sh resume
@@ -22,7 +24,7 @@ ESP-IDF is cloned with `--depth 1` and shallow submodules. Use `--full-idf-clone
 python3 -m esp32_dev setup --skip-idf --skip-packages
 ```
 
-After a successful (non-dry-run) setup, source `activate.sh` in that prefix. See [Getting started](../getting-started.md).
+`scripts/install.sh` runs `setup` and writes shell rc hooks so new interactive shells source `activate.sh`. Source it (`. ./scripts/install.sh`) to activate the current bash or zsh session too. Pass `--skip-shell` to skip the rc hooks. See [Getting started](../getting-started.md).
 
 ### Status and verify
 
@@ -47,6 +49,7 @@ Both print one row per check: git, cmake, ninja, python3, venv, esptool, platfor
 | `--skip-idf` | off | Do not clone or install ESP-IDF |
 | `--skip-udev` | off | Do not write udev rules |
 | `--skip-dialout` | off | Do not add the user to `dialout` |
+| `--skip-shell` | off | Do not add auto-activation hooks to shell rc files |
 | `--no-sudo` | off | Never prefix commands with sudo |
 | `--dry-run` | off | Log actions; do not change the system |
 | `--force` | off | Reinstall components even if they look present |

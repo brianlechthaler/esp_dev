@@ -110,6 +110,7 @@ class SetupConfig:
     dry_run: bool = False
     force: bool = False
     shallow_idf: bool = True
+    skip_shell: bool = False
     udev_rules_path: Path = field(default_factory=default_udev_path)
 
     def __post_init__(self) -> None:
@@ -143,8 +144,13 @@ class SetupConfig:
 
     @property
     def activate_script(self) -> Path:
-        """Shell script that activates IDF, esptool, and PlatformIO."""
+        """POSIX shell script that activates IDF, esptool, and PlatformIO."""
         return self.prefix / "activate.sh"
+
+    @property
+    def activate_fish(self) -> Path:
+        """Fish script that activates IDF, esptool, and PlatformIO."""
+        return self.prefix / "activate.fish"
 
     @property
     def idf_partial_dir(self) -> Path:

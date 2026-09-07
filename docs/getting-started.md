@@ -19,11 +19,17 @@ Unsupported distros: install the Debian package list yourself and re-run with `-
 From a clone of this repo:
 
 ```bash
-./scripts/setup-esp32-dev.sh
-source ~/.esp32-dev/activate.sh
+. ./scripts/install.sh
 ```
 
-The wrapper with no arguments runs `setup`. Extra arguments are passed to `python3 -m esp32_dev` (the wrapper sets `PYTHONPATH`).
+That runs `setup`, hooks **bash**, **zsh**, **fish**, **ksh**, and POSIX **sh** so new interactive shells activate the prefix, and (when sourced) activates the current bash or zsh session. Running without sourcing still hooks future shells:
+
+```bash
+./scripts/install.sh
+./scripts/install.sh --dry-run
+```
+
+The older wrapper `./scripts/setup-esp32-dev.sh` with no arguments also runs `setup`. Extra arguments are passed to `python3 -m esp32_dev` (the wrapper sets `PYTHONPATH`). After that wrapper, activate this shell yourself: `source ~/.esp32-dev/activate.sh`.
 
 After `pip install .` or `pip install -e .`, use `esp32-dev` or `python3 -m esp32_dev`. With no subcommand those print help instead of running setup:
 

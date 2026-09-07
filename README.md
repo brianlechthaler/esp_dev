@@ -5,13 +5,17 @@ Linux installer for **ESP-IDF**, **PlatformIO**, and **esptool**. It puts distro
 ## Quick start
 
 ```bash
-./scripts/setup-esp32-dev.sh
-source ~/.esp32-dev/activate.sh
+. ./scripts/install.sh
 ```
 
-Preview without changing the system: `./scripts/setup-esp32-dev.sh setup --dry-run`.
+That installs the toolkit and hooks common shells so new interactive sessions activate it. Sourcing also activates the current bash or zsh session. Running without sourcing still hooks future shells:
 
-Full steps, distro support, and activation: [Getting started](docs/getting-started.md).
+```bash
+./scripts/install.sh
+./scripts/install.sh --dry-run
+```
+
+The older wrapper `./scripts/setup-esp32-dev.sh` still works. Full steps: [Getting started](docs/getting-started.md).
 
 ## Documentation
 
