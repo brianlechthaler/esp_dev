@@ -9,12 +9,12 @@ Compiles and uploads a LED blink sketch to an attached ESP32, then confirms `LED
 1. Picks a USB serial port (`/dev/ttyUSB*` or `/dev/ttyACM*`, or `--port`)
 2. Runs esptool `chip-id` to identify the chip
 3. Writes a PlatformIO Arduino project under `<prefix>/projects/blink`
-4. Uploads with PlatformIO (`espressif32`)
+4. Uploads with PlatformIO (`espressif32`, or pioarduino for ESP32-C5)
 5. Waits for the port to reappear and reads 115200 baud until both LED messages appear
 
-The LED toggles every 500 ms. The first run may download the PlatformIO `espressif32` platform.
+The LED toggles every 500 ms. The first run may download the PlatformIO platform (official `espressif32`, or pioarduino for C5).
 
-USB-CDC chips (S2, S3, C3, C6, H2, C2) get `ARDUINO_USB_MODE=1` and `ARDUINO_USB_CDC_ON_BOOT=1` so Serial works on the native USB port.
+USB-CDC chips (S2, S3, C3, C5, C6, H2, C2) get `ARDUINO_USB_MODE=1` and `ARDUINO_USB_CDC_ON_BOOT=1` so Serial works on the native USB port.
 
 ## Usage
 
@@ -45,8 +45,11 @@ python3 -m esp32_dev blink --port /dev/ttyACM0 --pin 48
 | ESP32-S3 | `esp32-s3-devkitc-1` | 48 | yes |
 | ESP32-C2 | `esp32-c2-devkitm-1` | 8 | yes |
 | ESP32-C3 | `esp32-c3-devkitm-1` | 8 | yes |
+| ESP32-C5 | `esp32-c5-devkitc-1` | 27 | yes |
 | ESP32-C6 | `esp32-c6-devkitc-1` | 8 | yes |
 | ESP32-H2 | `esp32-h2-devkitm-1` | 8 | yes |
+
+ESP32-C5 uses the [pioarduino](https://github.com/pioarduino/platform-espressif32) `espressif32` platform because stock PlatformIO does not ship `esp32-c5-devkitc-1`. GPIO 27 is the DevKitC-1 RGB LED data pin.
 
 An unknown chip requires both `--board` and `--pin`.
 
