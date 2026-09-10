@@ -1,4 +1,4 @@
-"""Install ESP-IDF, PlatformIO, esptool, and related host dependencies."""
+"""Install ESP-IDF, PlatformIO, esptool, Rust, and related host dependencies."""
 
 from __future__ import annotations
 
@@ -9,11 +9,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from esp32_dev.config import (
+    CARGO_ESP_CRATES,
     DIALOUT_GROUP,
     ESPTOOL_SPEC,
     MIN_PYTHON,
     PARTIAL_SUFFIX,
     PLATFORMIO_SPEC,
+    RISCV_TARGETS,
+    RUST_COMPONENTS,
+    RUSTUP_INIT_URL,
     UDEV_RULES,
     SetupConfig,
 )
@@ -31,7 +35,7 @@ from esp32_dev.shell import generate_activate_fish, generate_activate_script, in
 
 logger = logging.getLogger("esp32_dev")
 
-REQUIRED_VERIFY = ("git", "python3", "esptool", "platformio", "esp-idf")
+REQUIRED_VERIFY = ("git", "python3", "esptool", "platformio", "esp-idf", "rustup")
 
 
 @dataclass(frozen=True)
@@ -92,6 +96,8 @@ def next_steps(config: SetupConfig) -> str:
             "esptool:     python -m esptool",
             "PlatformIO:  pio --help",
             "ESP-IDF:     idf.py --help",
+            "Rust:        cargo --version",
+            "             esp-generate --help",
             "",
             "Upload a blink sketch to an attached ESP32:",
             "  python -m esp32_dev blink",
@@ -177,8 +183,12 @@ def ensure_required_commands(config: SetupConfig, runner: Runner) -> None:
     needed: list[str] = ["python3"]
     if not config.skip_idf:
         needed.extend(["git", "cmake", "ninja"])
+    if not config.skip_rust:
+        needed.append("gcc")
     unique = list(dict.fromkeys(needed))
     missing = [name for name in unique if runner.which(name) is None]
+    if not config.skip_rust and runner.which("curl") is None and runner.which("wget") is None:
+        missing.append("curl")
     if missing:
         raise SetupError("missing required commands: " + ", ".join(missing))
 
@@ -347,6 +357,11 @@ def cleanup_stale_install(config: SetupConfig, *, dry_run: bool) -> None:
     if config.venv_dir.exists() and not config.venv_python.is_file():
         logger.info("removing incomplete tools virtualenv at %s", config.venv_dir)
         _remove_path(config.venv_dir, dry_run=dry_run)
+    if config.cargo_home.exists() and not (config.cargo_bin / "rustup").is_file():
+        logger.info("removing incomplete rustup install at %s", config.cargo_home)
+        _remove_path(config.cargo_home, dry_run=dry_run)
+        if config.rustup_home.exists():
+            _remove_path(config.rustup_home, dry_run=dry_run)
 
 
 def _run_idf_install(config: SetupConfig, runner: Runner) -> None:
@@ -398,6 +413,86 @@ def install_esp_idf(config: SetupConfig, runner: Runner) -> None:
     runner.run(idf_clone_args(config, staging), mutate=True, stream=True)
     _finalize_directory(staging, dest, dry_run=runner.dry_run)
     _run_idf_install(config, runner)
+
+
+def rust_env(config: SetupConfig) -> dict[str, str]:
+    """Return an environment with prefix-local ``CARGO_HOME`` and ``RUSTUP_HOME``."""
+    env = dict(os.environ)
+    env["CARGO_HOME"] = str(config.cargo_home)
+    env["RUSTUP_HOME"] = str(config.rustup_home)
+    env["PATH"] = str(config.cargo_bin) + os.pathsep + env.get("PATH", "")
+    return env
+
+
+def _fetch_rustup_script(runner: Runner) -> str:
+    if runner.which("curl") is not None:
+        return runner.run(["curl", "-sSfL", RUSTUP_INIT_URL], mutate=True).stdout
+    if runner.which("wget") is not None:
+        return runner.run(["wget", "-qO-", RUSTUP_INIT_URL], mutate=True).stdout
+    raise SetupError("curl or wget is required to install rustup")
+
+
+def _cargo_install(config: SetupConfig, runner: Runner, crate: str) -> None:
+    dest = config.cargo_bin / crate
+    if dest.is_file() and not config.force:
+        logger.info("%s already installed at %s", crate, dest)
+        return
+    args = [str(config.cargo_bin / "cargo"), "install", "--locked"]
+    if config.force:
+        args.append("--force")
+    args.append(crate)
+    logger.info("installing %s", crate)
+    runner.run(args, env=rust_env(config), mutate=True, stream=True)
+
+
+def install_rust(config: SetupConfig, runner: Runner) -> None:
+    """Install rustup, RISC-V targets, espup, and ESP Rust cargo tools."""
+    if config.skip_rust:
+        logger.info("skipping Rust toolchain")
+        return
+    env = rust_env(config)
+    rustup = config.cargo_bin / "rustup"
+    if not rustup.is_file() or config.force:
+        logger.info("installing rustup into %s", config.cargo_home)
+        script = _fetch_rustup_script(runner)
+        runner.run(
+            ["sh", "-s", "--", "-y", "--no-modify-path", "--default-toolchain", "stable"],
+            stdin=script,
+            env=env,
+            mutate=True,
+            stream=True,
+        )
+    else:
+        logger.info("rustup already present at %s", rustup)
+    components: list[str] = []
+    for name in RUST_COMPONENTS:
+        components.extend(["--component", name])
+    runner.run(
+        [str(rustup), "toolchain", "install", "stable", *components],
+        env=env,
+        mutate=True,
+        stream=True,
+    )
+    runner.run(
+        [str(rustup), "target", "add", *RISCV_TARGETS],
+        env=env,
+        mutate=True,
+        stream=True,
+    )
+    _cargo_install(config, runner, "espup")
+    espup = config.cargo_bin / "espup"
+    if not config.export_esp_script.is_file() or config.force:
+        logger.info("installing Espressif Rust toolchains with espup")
+        runner.run(
+            [str(espup), "install", "--export-file", str(config.export_esp_script)],
+            env=env,
+            mutate=True,
+            stream=True,
+        )
+    else:
+        logger.info("espup toolchain already installed")
+    for crate in CARGO_ESP_CRATES:
+        _cargo_install(config, runner, crate)
 
 
 def _reload_udev(runner: Runner) -> None:
@@ -473,6 +568,9 @@ def collect_status(config: SetupConfig, runner: Runner, host: Host) -> list[Tool
     idf_ok = export_sh.is_file() and idf_py.is_file()
     idf_detail = str(config.idf_dir) if idf_ok else "ESP-IDF export.sh or idf.py missing"
     items.append(ToolStatus("esp-idf", idf_ok, idf_detail))
+    items.append(_bin_status(runner, config.cargo_bin / "rustup", ["--version"]))
+    items.append(_bin_status(runner, config.cargo_bin / "cargo", ["--version"]))
+    items.append(_bin_status(runner, config.cargo_bin / "espup", ["--version"]))
     udev_ok = config.udev_rules_path.is_file()
     items.append(
         ToolStatus(
@@ -503,6 +601,14 @@ def _module_status(
     result = runner.run([str(venv_python), "-m", module, *extra], check=False)
     detail = result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
     return ToolStatus(module, result.returncode == 0, detail)
+
+
+def _bin_status(runner: Runner, path: Path, extra: list[str]) -> ToolStatus:
+    if not path.is_file():
+        return ToolStatus(path.name, False, "missing")
+    result = runner.run([str(path), *extra], check=False)
+    detail = result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
+    return ToolStatus(path.name, result.returncode == 0, detail)
 
 
 def write_activate(config: SetupConfig, runner: Runner) -> None:
@@ -539,6 +645,7 @@ def run_setup(config: SetupConfig, runner: Runner, host: Host) -> None:
         logger.info("skipping ESP-IDF")
     else:
         install_esp_idf(config, runner)
+    install_rust(config, runner)
     if config.skip_udev:
         logger.info("skipping udev rules")
     else:

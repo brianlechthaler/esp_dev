@@ -17,6 +17,7 @@ From a clone of this repo:
 ./esp32-dev/scripts/with-env.sh pio --version
 ./esp32-dev/scripts/with-env.sh python -m esptool version
 ./esp32-dev/scripts/with-env.sh idf.py --help
+./esp32-dev/scripts/with-env.sh cargo --version
 ```
 
 After a global Cursor skill install:
@@ -48,6 +49,18 @@ idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
 Do not clone ESP-IDF next to the app. `IDF_PATH` comes from `activate.sh`.
+
+## Rust
+
+```bash
+source "$HOME/.esp32-dev/activate.sh"
+esp-generate --headless -o esp32 my-esp-app
+cd my-esp-app
+cargo build
+cargo espflash flash --monitor
+```
+
+Do not run `rustup-init` or `cargo install espup` in that project. `CARGO_HOME` and `RUSTUP_HOME` come from `activate.sh`.
 
 ## esptool
 

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
-from esp32_dev.config import ESPTOOL_SPEC, PLATFORMIO_SPEC, UDEV_RULES
+from esp32_dev.config import ESPTOOL_SPEC, PLATFORMIO_SPEC, RUSTUP_INIT_URL, UDEV_RULES
 from esp32_dev.errors import SetupError
 from esp32_dev.installer import (
     ToolStatus,
+    _bin_status,
     _can_write,
     _existing_udev_text,
     _finalize_directory,
@@ -36,10 +38,12 @@ from esp32_dev.installer import (
     install_esptool,
     install_packages,
     install_platformio,
+    install_rust,
     install_udev,
     is_usable_idf_clone,
     next_steps,
     run_setup,
+    rust_env,
     user_in_group,
     verify_ok,
 )
@@ -75,10 +79,12 @@ def test_generate_activate_and_next_steps(tmp_path: Path) -> None:
     script = generate_activate_script(config)
     assert str(config.prefix) in script
     assert "IDF_PATH" in script
+    assert "CARGO_HOME" in script
     message = next_steps(config)
     assert "source " in message
     assert str(config.activate_script) in message
     assert "python -m esp32_dev blink" in message
+    assert "cargo" in message
 
 
 def test_format_status_and_verify() -> None:
@@ -89,6 +95,7 @@ def test_format_status_and_verify() -> None:
         ToolStatus("esptool", True, "v4"),
         ToolStatus("platformio", True, "v6"),
         ToolStatus("esp-idf", True, "/idf"),
+        ToolStatus("rustup", True, "rustup 1.28"),
         ToolStatus("extra", False, "nope"),
     ]
     rendered = format_status(items)
@@ -233,9 +240,20 @@ def test_ensure_required_commands_missing(tmp_path: Path) -> None:
 
 
 def test_ensure_required_commands_skip_idf_only_python3(tmp_path: Path) -> None:
+    config = make_config(tmp_path, skip_idf=True, skip_rust=True)
+    runner = FakeRunner()
+    runner.which_map = {"python3": "/usr/bin/python3"}
+    ensure_required_commands(config, runner)
+
+
+def test_ensure_required_commands_rust_needs_gcc_and_curl(tmp_path: Path) -> None:
     config = make_config(tmp_path, skip_idf=True)
     runner = FakeRunner()
     runner.which_map = {"python3": "/usr/bin/python3"}
+    with pytest.raises(SetupError, match="missing required commands: gcc, curl"):
+        ensure_required_commands(config, runner)
+    runner.which_map["gcc"] = "/usr/bin/gcc"
+    runner.which_map["wget"] = "/usr/bin/wget"
     ensure_required_commands(config, runner)
 
 
@@ -613,6 +631,10 @@ def test_collect_status_all_ok(tmp_path: Path) -> None:
     (config.idf_dir / "tools").mkdir()
     (config.idf_dir / "export.sh").write_text("#\n", encoding="utf-8")
     (config.idf_dir / "tools" / "idf.py").write_text("#\n", encoding="utf-8")
+    config.cargo_bin.mkdir(parents=True)
+    (config.cargo_bin / "rustup").write_text("#!/bin/sh\n", encoding="utf-8")
+    (config.cargo_bin / "cargo").write_text("#!/bin/sh\n", encoding="utf-8")
+    (config.cargo_bin / "espup").write_text("#!/bin/sh\n", encoding="utf-8")
     config.udev_rules_path.parent.mkdir(parents=True)
     config.udev_rules_path.write_text(UDEV_RULES, encoding="utf-8")
     items = collect_status(config, runner, FakeHost(tmp_path))
@@ -620,6 +642,9 @@ def test_collect_status_all_ok(tmp_path: Path) -> None:
     assert by_name["esptool"].ok
     assert by_name["platformio"].ok
     assert by_name["esp-idf"].ok
+    assert by_name["rustup"].ok
+    assert by_name["cargo"].ok
+    assert by_name["espup"].ok
     assert by_name["udev"].ok
     assert by_name["dialout"].ok
     assert by_name["venv"].ok
@@ -634,6 +659,7 @@ def test_collect_status_missing_tools(tmp_path: Path) -> None:
     assert by_name["cmake"].ok is False
     assert by_name["esptool"].ok is False
     assert by_name["esp-idf"].ok is False
+    assert by_name["rustup"].ok is False
     assert by_name["udev"].ok is False
     assert by_name["dialout"].ok is False
 
@@ -651,6 +677,13 @@ def test_run_setup_full(tmp_path: Path) -> None:
     assert config.venv_python.is_file()
     assert runner.has_args("usermod")
     assert (tmp_path / ".bashrc").is_file()
+    rustup = str(config.cargo_bin / "rustup")
+    assert runner.has_args(rustup, "toolchain", "install", "stable")
+    assert runner.has_args(str(config.cargo_bin / "espup"), "install")
+    activate = config.activate_script.read_text(encoding="utf-8")
+    assert "CARGO_HOME" in activate
+    assert "export-esp.sh" in activate
+    assert "LIBCLANG_PATH" in config.activate_fish.read_text(encoding="utf-8")
 
 
 def test_run_setup_all_skips(tmp_path: Path) -> None:
@@ -660,6 +693,7 @@ def test_run_setup_all_skips(tmp_path: Path) -> None:
         skip_esptool=True,
         skip_platformio=True,
         skip_idf=True,
+        skip_rust=True,
         skip_udev=True,
         skip_dialout=True,
         skip_shell=True,
@@ -680,6 +714,7 @@ def test_run_setup_skip_one_python_tool(tmp_path: Path) -> None:
         skip_platformio=True,
         skip_packages=True,
         skip_idf=True,
+        skip_rust=True,
         skip_udev=True,
         skip_dialout=True,
     )
@@ -693,6 +728,7 @@ def test_run_setup_skip_one_python_tool(tmp_path: Path) -> None:
         skip_esptool=True,
         skip_packages=True,
         skip_idf=True,
+        skip_rust=True,
         skip_udev=True,
         skip_dialout=True,
     )
@@ -710,6 +746,7 @@ def test_run_setup_dry_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         skip_esptool=True,
         skip_platformio=True,
         skip_idf=True,
+        skip_rust=True,
         skip_udev=True,
         skip_dialout=True,
     )
@@ -718,3 +755,146 @@ def test_run_setup_dry_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     assert "Dry run complete" in captured.out
     assert not config.activate_script.exists()
     assert not (tmp_path / ".bashrc").exists()
+
+
+def test_rust_env_sets_homes_and_path(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    env = rust_env(config)
+    assert env["CARGO_HOME"] == str(config.cargo_home)
+    assert env["RUSTUP_HOME"] == str(config.rustup_home)
+    assert env["PATH"].startswith(str(config.cargo_bin) + os.pathsep)
+
+
+def test_install_rust_downloads_toolchain_and_crates(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    runner = FakeRunner()
+    install_rust(config, runner)
+    assert runner.has_args("curl", "-sSfL", RUSTUP_INIT_URL)
+    assert any(call["args"][:2] == ["sh", "-s"] for call in runner.calls)
+    rustup = str(config.cargo_bin / "rustup")
+    cargo = str(config.cargo_bin / "cargo")
+    assert runner.has_args(rustup, "toolchain", "install", "stable")
+    assert runner.has_args(rustup, "target", "add")
+    target_calls = [call["args"] for call in runner.calls if call["args"][:2] == [rustup, "target"]]
+    assert any("riscv32imc-unknown-none-elf" in args for args in target_calls)
+    assert any("riscv32imac-unknown-none-elf" in args for args in target_calls)
+    assert runner.has_args(cargo, "install", "--locked", "espup")
+    assert runner.has_args(str(config.cargo_bin / "espup"), "install", "--export-file")
+    assert runner.has_args(cargo, "install", "--locked", "ldproxy")
+    assert runner.has_args(cargo, "install", "--locked", "esp-generate")
+    assert config.export_esp_script.is_file()
+    assert (config.cargo_bin / "rustup").is_file()
+
+
+def test_install_rust_reuses_existing_bins(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    config.cargo_bin.mkdir(parents=True)
+    crates = ("rustup", "cargo", "espup", "ldproxy", "espflash", "cargo-espflash", "esp-generate")
+    for name in crates:
+        (config.cargo_bin / name).write_text("#!/bin/sh\n", encoding="utf-8")
+    config.export_esp_script.write_text("export LIBCLANG_PATH=/x\n", encoding="utf-8")
+    runner = FakeRunner()
+    install_rust(config, runner)
+    assert not runner.has_args("curl")
+    assert not runner.has_args("wget")
+    assert not any(call["args"][:2] == ["sh", "-s"] for call in runner.calls)
+    assert not runner.has_args(str(config.cargo_bin / "cargo"), "install")
+    assert not runner.has_args(str(config.cargo_bin / "espup"), "install")
+    assert runner.has_args(str(config.cargo_bin / "rustup"), "toolchain", "install", "stable")
+
+
+def test_install_rust_force_reinstalls(tmp_path: Path) -> None:
+    config = make_config(tmp_path, force=True)
+    config.cargo_bin.mkdir(parents=True)
+    (config.cargo_bin / "rustup").write_text("#!/bin/sh\n", encoding="utf-8")
+    (config.cargo_bin / "cargo").write_text("#!/bin/sh\n", encoding="utf-8")
+    (config.cargo_bin / "espup").write_text("#!/bin/sh\n", encoding="utf-8")
+    runner = FakeRunner()
+    install_rust(config, runner)
+    cargo = str(config.cargo_bin / "cargo")
+    assert runner.has_args("curl", "-sSfL", RUSTUP_INIT_URL)
+    assert runner.has_args(cargo, "install", "--locked", "--force", "espup")
+    assert runner.has_args(str(config.cargo_bin / "espup"), "install", "--export-file")
+
+
+def test_install_rust_wget_fallback(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    runner = FakeRunner()
+    runner.which_map["curl"] = None
+    install_rust(config, runner)
+    assert runner.has_args("wget", "-qO-", RUSTUP_INIT_URL)
+    assert not runner.has_args("curl")
+
+
+def test_install_rust_requires_curl_or_wget(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    runner = FakeRunner()
+    runner.which_map["curl"] = None
+    runner.which_map["wget"] = None
+    with pytest.raises(SetupError, match="curl or wget"):
+        install_rust(config, runner)
+
+
+def test_install_rust_skipped(tmp_path: Path) -> None:
+    config = make_config(tmp_path, skip_rust=True)
+    runner = FakeRunner()
+    install_rust(config, runner)
+    assert runner.calls == []
+
+
+def test_bin_status_missing_and_ok(tmp_path: Path) -> None:
+    missing = _bin_status(FakeRunner(), tmp_path / "rustup", ["--version"])
+    assert missing.ok is False
+    assert missing.detail == "missing"
+    binary = tmp_path / "cargo"
+    binary.write_text("#!/bin/sh\n", encoding="utf-8")
+    runner = FakeRunner()
+    runner.results[(str(binary), "--version")] = CommandResult(0, "cargo 1.80\n", "")
+    ok = _bin_status(runner, binary, ["--version"])
+    assert ok.ok is True
+    assert "cargo 1.80" in ok.detail
+    runner.results[(str(binary), "--version")] = CommandResult(2, "", "")
+    failed = _bin_status(runner, binary, ["--version"])
+    assert failed.ok is False
+    assert "exit 2" in failed.detail
+
+
+def test_cleanup_incomplete_rust(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    config.prefix.mkdir()
+    config.cargo_home.mkdir()
+    (config.cargo_home / "tmp").write_text("x", encoding="utf-8")
+    config.rustup_home.mkdir()
+    cleanup_stale_install(config, dry_run=False)
+    assert not config.cargo_home.exists()
+    assert not config.rustup_home.exists()
+    config.cargo_bin.mkdir(parents=True)
+    (config.cargo_bin / "rustup").write_text("#!/bin/sh\n", encoding="utf-8")
+    config.rustup_home.mkdir()
+    cleanup_stale_install(config, dry_run=False)
+    assert config.cargo_home.exists()
+    assert config.rustup_home.exists()
+    other = make_config(tmp_path / "other")
+    other.prefix.mkdir(parents=True)
+    other.cargo_home.mkdir()
+    cleanup_stale_install(other, dry_run=False)
+    assert not other.cargo_home.exists()
+    assert not other.rustup_home.exists()
+
+
+def test_run_setup_skip_rust(tmp_path: Path) -> None:
+    config = make_config(
+        tmp_path,
+        skip_packages=True,
+        skip_esptool=True,
+        skip_platformio=True,
+        skip_idf=True,
+        skip_rust=True,
+        skip_udev=True,
+        skip_dialout=True,
+        skip_shell=True,
+    )
+    runner = FakeRunner()
+    run_setup(config, runner, FakeHost(tmp_path))
+    assert not any("rustup" in " ".join(call["args"]) for call in runner.calls)
+    assert not any("espup" in " ".join(call["args"]) for call in runner.calls)

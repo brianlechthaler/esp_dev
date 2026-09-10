@@ -1,34 +1,36 @@
 ---
 name: esp32-dev
 description: >-
-  Uses the shared ESP32 development environment (ESP-IDF, PlatformIO, and
-  esptool) already installed by this repo instead of downloading those
-  toolchains again. Use when building, flashing, or debugging ESP32 firmware;
-  when the user mentions pio, PlatformIO, idf.py, ESP-IDF, esptool, or ESP32
-  boards; or when an agent would otherwise pip-install or git-clone those tools.
+  Uses the shared ESP32 development environment (ESP-IDF, PlatformIO,
+  esptool, and Rust) already installed by this repo instead of downloading
+  those toolchains again. Use when building, flashing, or debugging ESP32
+  firmware; when the user mentions pio, PlatformIO, idf.py, ESP-IDF, esptool,
+  rustup, espup, cargo, esp-generate, or ESP32 boards; or when an agent would
+  otherwise pip-install, rustup-init, or git-clone those tools.
 ---
 
 # ESP32 Dev Toolkit
 
-Use the **one** dest environment this repo installs (`~/.esp32-dev` by default). Do not download PlatformIO, ESP-IDF, or esptool into a project, venv, or container when that environment already exists.
+Use the **one** dest environment this repo installs (`~/.esp32-dev` by default). Do not download PlatformIO, ESP-IDF, esptool, rustup, or espup into a project, venv, or container when that environment already exists.
 
 ## When This Applies
 
 | Applies | Does not apply |
 |---------|----------------|
 | Build, flash, monitor, or debug ESP32 firmware | Pure docs with no firmware or serial work |
-| User or task mentions `pio`, PlatformIO, `idf.py`, ESP-IDF, esptool, or ESP32 | Installing unrelated Python packages |
-| Agent is about to `pip install platformio` / `esptool` or `git clone esp-idf` | The user explicitly asks for a throwaway isolated toolchain |
+| User or task mentions `pio`, PlatformIO, `idf.py`, ESP-IDF, esptool, `cargo`, `espup`, `esp-generate`, or ESP32 | Installing unrelated Python packages |
+| Agent is about to `pip install platformio` / `esptool`, `git clone esp-idf`, or `rustup` / `espup` in the project | The user explicitly asks for a throwaway isolated toolchain |
 
 When unsure, **use the shared toolkit**. Only install it once (via this repo) if it is missing.
 
 ## Core Rules
 
-1. **Reuse `~/.esp32-dev`** (or `$ESP32_DEV_PREFIX` if set). That prefix holds the tools venv and the ESP-IDF clone.
+1. **Reuse `~/.esp32-dev`** (or `$ESP32_DEV_PREFIX` if set). That prefix holds the tools venv, the ESP-IDF clone, and prefix-local rustup/cargo.
 2. **Do not** `pip install platformio` or `esptool` into the current project.
 3. **Do not** `git clone` Espressif ESP-IDF into the project or another home path.
-4. **Do not** run PlatformIO's get-platformio installer, Espressif's `install.sh` from a fresh clone, or a second IDF export, unless the shared prefix is missing and you are using this repo's installer.
-5. If the toolkit is missing, install it **once** with this repo (`./scripts/setup-esp32-dev.sh` or `python3 -m esp32_dev setup`), then continue. Do not invent a parallel install.
+4. **Do not** run `rustup-init`, `curl https://sh.rustup.rs`, or `cargo install espup` in the firmware project. Use the prefix `cargo` / `rustup`.
+5. **Do not** run PlatformIO's get-platformio installer, Espressif's `install.sh` from a fresh clone, or a second IDF export, unless the shared prefix is missing and you are using this repo's installer.
+6. If the toolkit is missing, install it **once** with this repo (`./scripts/setup-esp32-dev.sh` or `python3 -m esp32_dev setup`), then continue. Do not invent a parallel install.
 
 ## Workflow
 
@@ -37,8 +39,8 @@ ESP32 toolkit:
 - [ ] Resolve prefix (~/.esp32-dev or $ESP32_DEV_PREFIX)
 - [ ] Confirm activate.sh exists (or run this repo's setup)
 - [ ] Source activate.sh (or wrap the command)
-- [ ] Run pio / idf.py / python -m esptool
-- [ ] Never pip-install or re-clone those tools
+- [ ] Run pio / idf.py / python -m esptool / cargo / esp-generate
+- [ ] Never pip-install, rustup-init, or re-clone those tools
 ```
 
 ### 1. Locate the toolkit
@@ -67,6 +69,8 @@ source "${ESP32_DEV_PREFIX:-$HOME/.esp32-dev}/activate.sh"
 python -m esptool version
 pio --help
 idf.py --help
+cargo --version
+esp-generate --help
 ```
 
 Non-interactive (agent default). Prefer the skill wrapper after a local or global skill install:
@@ -91,11 +95,11 @@ Direct binaries without full IDF export (esptool / pio only):
 "$HOME/.esp32-dev/venv/bin/pio" --help
 ```
 
-`idf.py` still needs `activate.sh` (it sources ESP-IDF `export.sh`).
+`idf.py` still needs `activate.sh` (it sources ESP-IDF `export.sh`). Xtensa Rust builds need `activate.sh` (it sources `export-esp.sh`).
 
 ### 3. Firmware project vs toolkit repo
 
-Keep PlatformIO / ESP-IDF **project files** (`platformio.ini`, `sdkconfig`, `main/`) in the user's firmware repo. Keep **toolchains** in the shared prefix. A project may live anywhere; only the toolkit is shared.
+Keep PlatformIO / ESP-IDF / Rust **project files** (`platformio.ini`, `sdkconfig`, `main/`, `Cargo.toml`) in the user's firmware repo. Keep **toolchains** in the shared prefix. A project may live anywhere; only the toolkit is shared.
 
 ## Commands
 
@@ -104,6 +108,8 @@ Keep PlatformIO / ESP-IDF **project files** (`platformio.ini`, `sdkconfig`, `mai
 | esptool | `python -m esptool …` |
 | PlatformIO | `pio run`, `pio run -t upload`, `pio device monitor` |
 | ESP-IDF | `idf.py set-target esp32`, `idf.py build`, `idf.py flash`, `idf.py monitor` |
+| Rust project | `esp-generate --headless -o esp32 my-app` |
+| Rust build / flash | `cargo build`, `cargo espflash flash --monitor` |
 | Toolkit status | `python3 -m esp32_dev status` |
 | Toolkit verify | `python3 -m esp32_dev verify` |
 | First-time toolkit install | `./scripts/setup-esp32-dev.sh` in this repo |
@@ -112,9 +118,12 @@ Useful paths:
 
 | Path | Role |
 |------|------|
-| `~/.esp32-dev/activate.sh` | POSIX activate (venv + IDF) |
+| `~/.esp32-dev/activate.sh` | POSIX activate (venv + IDF + Rust) |
 | `~/.esp32-dev/venv` | esptool + PlatformIO |
 | `~/.esp32-dev/esp-idf` | ESP-IDF (`IDF_PATH`) |
+| `~/.esp32-dev/cargo` | `CARGO_HOME` (rustup, cargo, espup, esp-generate) |
+| `~/.esp32-dev/rustup` | `RUSTUP_HOME` |
+| `~/.esp32-dev/export-esp.sh` | Xtensa env from `espup` |
 
 ## Anti-Patterns
 
@@ -122,9 +131,10 @@ Useful paths:
 |-------|------------|
 | `pip install platformio esptool` in the project venv | Shared `~/.esp32-dev/venv` via `activate.sh` |
 | `git clone https://github.com/espressif/esp-idf` into the firmware repo | Use `~/.esp32-dev/esp-idf` |
+| `curl https://sh.rustup.rs` or `cargo install espup` in the project | Shared prefix rustup/cargo via `activate.sh` |
 | Downloading get-platformio.py / a new IDF toolchain | This repo's `setup` if tools are missing |
 | Copying ESP-IDF or `.platformio` into the project for "portability" | Point the agent at the shared prefix |
-| Assuming `pio` / `idf.py` on the default PATH | Source `activate.sh` first |
+| Assuming `pio` / `idf.py` / `cargo` on the default PATH | Source `activate.sh` first |
 
 ## Additional Resources
 

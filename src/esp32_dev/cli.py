@@ -26,7 +26,9 @@ def build_parser() -> argparse.ArgumentParser:
     """Create the top-level argument parser."""
     parser = argparse.ArgumentParser(
         prog="esp32-dev",
-        description="Set up an ESP32 development environment (ESP-IDF, PlatformIO, and esptool).",
+        description=(
+            "Set up an ESP32 development environment (ESP-IDF, PlatformIO, esptool, and Rust)."
+        ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
@@ -97,6 +99,11 @@ def _add_setup_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--skip-esptool", action="store_true", help="Do not install esptool")
     parser.add_argument("--skip-platformio", action="store_true", help="Do not install PlatformIO")
     parser.add_argument("--skip-idf", action="store_true", help="Do not install ESP-IDF")
+    parser.add_argument(
+        "--skip-rust",
+        action="store_true",
+        help="Do not install rustup, espup, or ESP Rust cargo tools",
+    )
     parser.add_argument("--skip-udev", action="store_true", help="Do not install udev rules")
     parser.add_argument(
         "--skip-dialout",
@@ -165,6 +172,7 @@ def config_from_args(args: argparse.Namespace) -> SetupConfig:
         skip_esptool=args.skip_esptool,
         skip_platformio=args.skip_platformio,
         skip_idf=args.skip_idf,
+        skip_rust=args.skip_rust,
         skip_udev=args.skip_udev,
         skip_dialout=args.skip_dialout,
         skip_shell=args.skip_shell,

@@ -12,7 +12,7 @@ The [Dockerfile](../../Dockerfile) has three stages:
 | `test` | `pip install -e ".[dev]"`, tests, Makefile, `install.py`, skill tree | `make` (default `test`) |
 | `runtime` | `pip install .` (the CLI only) | `esp32-dev` (default `--help`) |
 
-The **runtime** image does not include ESP-IDF, PlatformIO platforms, or a pre-built `~/.esp32-dev`. It is the installer CLI. Running `setup` inside a container still needs bind-mounted prefix, packages, and (for blink) USB devices.
+The **runtime** image does not include ESP-IDF, PlatformIO platforms, Rust/espup, or a pre-built `~/.esp32-dev`. It is the installer CLI. Running `setup` inside a container still needs bind-mounted prefix, packages, and (for blink) USB devices.
 
 ## Usage
 

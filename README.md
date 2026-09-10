@@ -1,6 +1,6 @@
 # ESP32 development environment
 
-Linux installer for **ESP-IDF**, **PlatformIO**, and **esptool**. It puts distro packages, a tools virtualenv, udev rules, and `dialout` membership in one prefix (`~/.esp32-dev` by default).
+Linux installer for **ESP-IDF**, **PlatformIO**, **esptool**, and **Rust** (rustup, espup, and ESP cargo tools). It puts distro packages, a tools virtualenv, the Rust toolchain, udev rules, and `dialout` membership in one prefix (`~/.esp32-dev` by default).
 
 ## Quick start
 

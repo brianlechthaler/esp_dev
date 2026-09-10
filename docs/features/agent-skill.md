@@ -1,6 +1,6 @@
 # Agent skill
 
-Installs the **esp32-dev** skill so coding tools reuse the shared toolkit at `~/.esp32-dev` instead of pip-installing or cloning PlatformIO, ESP-IDF, or esptool.
+Installs the **esp32-dev** skill so coding tools reuse the shared toolkit at `~/.esp32-dev` instead of pip-installing or cloning PlatformIO, ESP-IDF, or esptool, and instead of running rustup/espup in a firmware project.
 
 ## Overview
 
@@ -51,12 +51,13 @@ flowchart LR
   Act --> PIO[pio]
   Act --> IDF[idf.py]
   Act --> ESP["python -m esptool"]
+  Act --> Rust["cargo / esp-generate"]
 ```
 
 Agents that load the skill should:
 
 1. Source `~/.esp32-dev/activate.sh` (or `$ESP32_DEV_PREFIX/activate.sh`)
-2. Run `pio`, `idf.py`, and `python -m esptool` from that environment
+2. Run `pio`, `idf.py`, `python -m esptool`, `cargo`, and `esp-generate` from that environment
 3. If the prefix is missing, run this repo's `./scripts/setup-esp32-dev.sh` (or `python3 -m esp32_dev setup`) once, not a parallel pip/git toolchain
 
 Helper after a skill install:
