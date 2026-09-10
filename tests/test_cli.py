@@ -88,6 +88,7 @@ def test_config_from_args(tmp_path: Path) -> None:
     assert config.shallow_idf is False
     assert config.idf_version == "v6.1"
     assert config.skip_shell is False
+    assert config.skip_rust is False
 
 
 def test_prefix_from_args(tmp_path: Path) -> None:
@@ -106,6 +107,12 @@ def test_config_from_args_skip_shell(tmp_path: Path) -> None:
     parser = build_parser()
     args = parser.parse_args(["setup", "--prefix", str(tmp_path), "--skip-shell"])
     assert config_from_args(args).skip_shell is True
+
+
+def test_config_from_args_skip_rust(tmp_path: Path) -> None:
+    parser = build_parser()
+    args = parser.parse_args(["setup", "--prefix", str(tmp_path), "--skip-rust"])
+    assert config_from_args(args).skip_rust is True
 
 
 def test_setup_success(
@@ -188,6 +195,7 @@ def test_status_and_verify(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     assert main(["status", "--prefix", str(prefix)], host=host, runner=runner) == 0
     out = capsys.readouterr().out
     assert "esptool" in out
+    assert "rustup" in out
     assert main(["verify", "--prefix", str(prefix)], host=host, runner=runner) == 1
 
 
@@ -225,6 +233,7 @@ def test_setup_creates_real_runner_dry_run(tmp_path: Path) -> None:
             "--skip-esptool",
             "--skip-platformio",
             "--skip-idf",
+            "--skip-rust",
             "--skip-udev",
             "--skip-dialout",
             "--prefix",
@@ -245,6 +254,7 @@ def test_verbose_setup(tmp_path: Path) -> None:
             "--skip-esptool",
             "--skip-platformio",
             "--skip-idf",
+            "--skip-rust",
             "--skip-udev",
             "--skip-dialout",
             "--prefix",

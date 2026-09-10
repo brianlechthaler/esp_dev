@@ -61,6 +61,19 @@ def generate_activate_script(config: SetupConfig) -> str:
         "  # shellcheck disable=SC1091\n"
         '  . "$IDF_PATH/export.sh"\n'
         "fi\n"
+        'export CARGO_HOME="$ESP32_DEV_PREFIX/cargo"\n'
+        'export RUSTUP_HOME="$ESP32_DEV_PREFIX/rustup"\n'
+        'if [ -f "$CARGO_HOME/env" ]; then\n'
+        "  # shellcheck disable=SC1091\n"
+        '  . "$CARGO_HOME/env"\n'
+        'elif [ -d "$CARGO_HOME/bin" ]; then\n'
+        '  PATH="$CARGO_HOME/bin:$PATH"\n'
+        "  export PATH\n"
+        "fi\n"
+        'if [ -f "$ESP32_DEV_PREFIX/export-esp.sh" ]; then\n'
+        "  # shellcheck disable=SC1091\n"
+        '  . "$ESP32_DEV_PREFIX/export-esp.sh"\n'
+        "fi\n"
     )
 
 
@@ -81,7 +94,40 @@ def generate_activate_fish(config: SetupConfig) -> str:
         'if test -f "$IDF_PATH/export.fish"\n'
         '    source "$IDF_PATH/export.fish"\n'
         "end\n"
+        'set -gx CARGO_HOME "$ESP32_DEV_PREFIX/cargo"\n'
+        'set -gx RUSTUP_HOME "$ESP32_DEV_PREFIX/rustup"\n'
+        'if test -d "$CARGO_HOME/bin"\n'
+        '    set -gx PATH "$CARGO_HOME/bin" $PATH\n'
+        "end\n"
+        f"{_fish_exports_from_posix(config.export_esp_script)}"
     )
+
+
+def _fish_exports_from_posix(path: Path) -> str:
+    """Convert ``export VAR=value`` lines from a POSIX script into fish ``set -gx``."""
+    if not path.is_file():
+        return ""
+    lines: list[str] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        stripped = raw.strip()
+        if not stripped.startswith("export "):
+            continue
+        rest = stripped[len("export ") :]
+        if "=" not in rest:
+            continue
+        key, _, value = rest.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if not key:
+            continue
+        if key == "PATH" and value.endswith(":$PATH"):
+            prefix = value[: -len(":$PATH")]
+            lines.append(f"set -gx PATH {prefix} $PATH")
+        else:
+            lines.append(f'set -gx {key} "{value}"')
+    if not lines:
+        return ""
+    return "\n".join(lines) + "\n"
 
 
 def generate_rc_hook(prefix: Path, rc: Path) -> str:

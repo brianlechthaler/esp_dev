@@ -86,6 +86,9 @@ class FakeRunner:
             "ninja": "/usr/bin/ninja",
             "dnf": "/usr/bin/dnf",
             "udevadm": "/usr/bin/udevadm",
+            "curl": "/usr/bin/curl",
+            "wget": "/usr/bin/wget",
+            "gcc": "/usr/bin/gcc",
         }
         self.results: dict[tuple[str, ...], CommandResult] = {}
         self.missing_packages: set[str] = set()
@@ -129,7 +132,7 @@ class FakeRunner:
         if mutate and self.dry_run:
             return CommandResult(0, "", "")
         if self.apply_side_effects:
-            _apply_side_effects(cmd)
+            _apply_side_effects(cmd, env)
         result = self._result_for(cmd)
         if check and result.returncode != 0:
             detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
@@ -178,7 +181,13 @@ class FakeRunner:
         return False
 
 
-def _apply_side_effects(cmd: list[str]) -> None:
+def _write_stub(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/bin/sh\n", encoding="utf-8")
+    path.chmod(0o755)
+
+
+def _apply_side_effects(cmd: list[str], env: dict[str, str] | None = None) -> None:
     if len(cmd) >= 4 and cmd[-3] == "-m" and cmd[-2] == "venv":
         venv_dir = Path(cmd[-1])
         bin_dir = venv_dir / "bin"
@@ -195,6 +204,28 @@ def _apply_side_effects(cmd: list[str]) -> None:
         (dest / "install.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
         (dest / "export.sh").write_text("# export\n", encoding="utf-8")
         (dest / "tools" / "idf.py").write_text("# idf\n", encoding="utf-8")
+        return
+    cargo_home = Path((env or {}).get("CARGO_HOME", ""))
+    if cmd[:2] == ["sh", "-s"] and "--no-modify-path" in cmd and cargo_home.parts:
+        for name in ("rustup", "cargo", "rustc"):
+            _write_stub(cargo_home / "bin" / name)
+        return
+    if cargo_home.parts and Path(cmd[0]).name == "cargo" and "install" in cmd:
+        for part in cmd[2:]:
+            if part.startswith("-"):
+                continue
+            _write_stub(cargo_home / "bin" / part)
+        return
+    if Path(cmd[0]).name == "espup" and len(cmd) >= 2 and cmd[1] == "install":
+        export_file = None
+        if "--export-file" in cmd:
+            export_file = Path(cmd[cmd.index("--export-file") + 1])
+        if export_file is not None:
+            export_file.write_text(
+                'export LIBCLANG_PATH="/opt/esp-clang/lib"\n'
+                'export PATH="/opt/esp-toolchain/bin:$PATH"\n',
+                encoding="utf-8",
+            )
 
 
 def make_config(tmp_path: Path, **kwargs: object) -> SetupConfig:

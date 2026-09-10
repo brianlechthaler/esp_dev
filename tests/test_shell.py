@@ -57,6 +57,9 @@ def test_generate_activate_script_is_posix_and_guarded(tmp_path: Path) -> None:
     assert "ESP32_DEV_ACTIVE" in script
     assert "venv/bin/activate" in script
     assert "IDF_PATH" in script
+    assert "CARGO_HOME" in script
+    assert "RUSTUP_HOME" in script
+    assert "export-esp.sh" in script
     assert "BASH_VERSION" in script
     assert "ZSH_VERSION" in script
 
@@ -68,6 +71,30 @@ def test_generate_activate_fish(tmp_path: Path) -> None:
     assert "activate.fish" in script
     assert "export.fish" in script
     assert "ESP32_DEV_ACTIVE" in script
+    assert "CARGO_HOME" in script
+    assert "RUSTUP_HOME" in script
+    assert "$CARGO_HOME/bin" in script
+
+
+def test_generate_activate_fish_converts_export_esp(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    config.prefix.mkdir(parents=True)
+    config.export_esp_script.write_text(
+        "# comment\n"
+        'export LIBCLANG_PATH="/opt/esp-clang/lib"\n'
+        'export PATH="/opt/esp-toolchain/bin:$PATH"\n'
+        "not-an-export\n"
+        "export BARE\n",
+        encoding="utf-8",
+    )
+    script = generate_activate_fish(config)
+    assert 'set -gx LIBCLANG_PATH "/opt/esp-clang/lib"' in script
+    assert "set -gx PATH /opt/esp-toolchain/bin $PATH" in script
+    assert "BARE" not in script
+    config.export_esp_script.write_text("# none\nexport =ignored\nexport BARE\n", encoding="utf-8")
+    empty = generate_activate_fish(config)
+    assert "ignored" not in empty
+    assert 'set -gx CARGO_HOME "$ESP32_DEV_PREFIX/cargo"' in empty
 
 
 def test_generate_rc_hook_posix_is_interactive_only(tmp_path: Path) -> None:
@@ -226,6 +253,7 @@ def test_run_setup_hooks_login_shell(tmp_path: Path) -> None:
         skip_esptool=True,
         skip_platformio=True,
         skip_idf=True,
+        skip_rust=True,
         skip_udev=True,
         skip_dialout=True,
     )

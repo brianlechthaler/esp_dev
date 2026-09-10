@@ -46,6 +46,11 @@ def _ready_config(tmp_path: Path) -> tuple[SetupConfig, Path]:
     (config.idf_dir / "tools").mkdir()
     (config.idf_dir / "export.sh").write_text("#\n", encoding="utf-8")
     (config.idf_dir / "tools" / "idf.py").write_text("#\n", encoding="utf-8")
+    config.cargo_bin.mkdir(parents=True)
+    for name in ("rustup", "cargo", "espup"):
+        path = config.cargo_bin / name
+        path.write_text("#!/bin/sh\n", encoding="utf-8")
+        path.chmod(0o755)
     return config, python
 
 

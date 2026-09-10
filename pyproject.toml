@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "esp32-dev"
 version = "1.0.0"
-description = "Set up an ESP32 development environment with ESP-IDF, PlatformIO, and esptool."
+description = "Set up an ESP32 development environment with ESP-IDF, PlatformIO, esptool, and Rust."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Brian Lechthaler" }]
-keywords = ["esp32", "esp-idf", "platformio", "esptool"]
+keywords = ["esp32", "esp-idf", "platformio", "esptool", "rust", "espup"]
 
 [project.optional-dependencies]
 dev = [

@@ -7,7 +7,8 @@
 
 ## Features
 
-- [Setup](features/setup.md): `setup` / `resume`, packages, ESP-IDF, udev, status, verify
+- [Setup](features/setup.md): `setup` / `resume`, packages, ESP-IDF, Rust, udev, status, verify
+- [Rust](features/rust.md): rustup, espup, RISC-V targets, cargo flash/generate tools
 - [Blink](features/blink.md): flash a LED sketch and confirm serial output
 - [Agent skill](features/agent-skill.md): `install.py`, global vs project, agent behavior
 - [Container](features/container.md): test and runtime images, GHCR

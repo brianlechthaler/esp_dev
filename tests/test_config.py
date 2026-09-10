@@ -31,8 +31,13 @@ def test_config_paths_and_needs_venv(tmp_path: Path) -> None:
     assert config.venv_partial_dir == config.prefix / "venv.partial"
     assert config.activate_script == config.prefix / "activate.sh"
     assert config.activate_fish == config.prefix / "activate.fish"
+    assert config.cargo_home == config.prefix / "cargo"
+    assert config.rustup_home == config.prefix / "rustup"
+    assert config.cargo_bin == config.prefix / "cargo" / "bin"
+    assert config.export_esp_script == config.prefix / "export-esp.sh"
     assert config.needs_venv is True
     assert config.skip_shell is False
+    assert config.skip_rust is False
 
 
 def test_needs_venv_false_when_both_skipped(tmp_path: Path) -> None:

@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from esp32_dev.config import ARCH_PACKAGES, DEBIAN_PACKAGES, FEDORA_PACKAGES
+from esp32_dev.config import (
+    ARCH_PACKAGES,
+    DEBIAN_PACKAGES,
+    FEDORA_PACKAGES,
+)
 from esp32_dev.detect import (
     FAMILY_ARCH,
     FAMILY_DEBIAN,
@@ -66,6 +70,15 @@ def test_packages_for_known_families() -> None:
     assert packages_for(FAMILY_DEBIAN) == DEBIAN_PACKAGES
     assert packages_for(FAMILY_FEDORA) == FEDORA_PACKAGES
     assert packages_for(FAMILY_ARCH) == ARCH_PACKAGES
+    assert "curl" in DEBIAN_PACKAGES
+    assert "build-essential" in DEBIAN_PACKAGES
+    assert "pkg-config" in DEBIAN_PACKAGES
+    assert "libudev-dev" in DEBIAN_PACKAGES
+    assert "curl" in FEDORA_PACKAGES
+    assert "gcc" in FEDORA_PACKAGES
+    assert "perl" in FEDORA_PACKAGES
+    assert "curl" in ARCH_PACKAGES
+    assert "gcc" in ARCH_PACKAGES
 
 
 def test_packages_for_unknown() -> None:

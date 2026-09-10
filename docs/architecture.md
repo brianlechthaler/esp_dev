@@ -8,9 +8,12 @@ Default prefix is `~/.esp32-dev` (`SetupConfig.prefix`). After a full setup:
 
 | Path | Role |
 |------|------|
-| `activate.sh` | POSIX script: venv + `IDF_PATH` + ESP-IDF `export.sh` |
+| `activate.sh` | POSIX script: venv + `IDF_PATH` + ESP-IDF `export.sh` + cargo/espup |
 | `venv/` | Python virtualenv with esptool and PlatformIO |
 | `esp-idf/` | ESP-IDF clone; `install.sh` has been run for the selected targets |
+| `cargo/` | `CARGO_HOME` (rustup, cargo, espup, espflash, esp-generate) |
+| `rustup/` | `RUSTUP_HOME` (stable + Espressif Xtensa toolchain) |
+| `export-esp.sh` | Xtensa env vars written by `espup install` |
 | `projects/blink/` | Generated PlatformIO project used by `blink` |
 
 Host-side (not under the prefix):
@@ -20,7 +23,7 @@ Host-side (not under the prefix):
 | `/etc/udev/rules.d/99-esp32-dev.rules` | USB serial / JTAG access for common ESP32 adapters |
 | `dialout` group | User membership for `/dev/ttyUSB*` and `/dev/ttyACM*` |
 
-Incomplete clones and virtualenvs are written next to the real paths with a `.partial` suffix, then renamed. `setup` / `resume` delete leftover `.partial` trees and unusable `esp-idf` / `venv` directories before continuing.
+Incomplete clones and virtualenvs are written next to the real paths with a `.partial` suffix, then renamed. `setup` / `resume` delete leftover `.partial` trees and unusable `esp-idf` / `venv` / `cargo` directories before continuing.
 
 ## Components
 
@@ -35,6 +38,7 @@ flowchart LR
   Setup --> Prefix["~/.esp32-dev"]
   Prefix --> Venv["venv: esptool, pio"]
   Prefix --> IDF["esp-idf"]
+  Prefix --> Rust["cargo + rustup"]
   Prefix --> Act["activate.sh"]
   Setup --> Udev["udev rules"]
   Setup --> Dialout["dialout group"]
@@ -44,7 +48,7 @@ flowchart LR
 | Piece | Responsibility |
 |-------|----------------|
 | `cli.py` | Argument parsing and dispatch |
-| `installer.py` | Packages, venv, ESP-IDF, udev, dialout, activate script, status |
+| `installer.py` | Packages, venv, ESP-IDF, Rust, udev, dialout, activate script, status |
 | `shell.py` | `activate.sh` / `activate.fish` and interactive-shell rc hooks |
 | `blink.py` | Chip detect, PlatformIO blink sketch, serial confirm |
 | `detect.py` | `/etc/os-release` → distro family and package list |
@@ -62,13 +66,14 @@ flowchart TD
   B --> C["Distro packages"]
   C --> D["venv + esptool + PlatformIO"]
   D --> E["Clone ESP-IDF and run install.sh"]
-  E --> F["udev rules"]
+  E --> R["rustup + espup + cargo tools"]
+  R --> F["udev rules"]
   F --> G["dialout"]
   G --> H["Write activate.sh"]
   H --> I["Shell rc hooks"]
 ```
 
-Each of C–G and I can be skipped with a `--skip-*` flag. Details: [Setup](features/setup.md).
+Each of C–G, R, and I can be skipped with a `--skip-*` flag. Details: [Setup](features/setup.md). Rust layout: [Rust](features/rust.md).
 
 ## Invocation
 
