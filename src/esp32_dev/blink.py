@@ -7,7 +7,7 @@ import logging
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from esp32_dev.config import SetupConfig
@@ -19,6 +19,11 @@ logger = logging.getLogger("esp32_dev")
 
 DEFAULT_BOARD = "esp32dev"
 DEFAULT_PIN = 2
+DEFAULT_PLATFORM = "espressif32"
+PIOARDUINO_PLATFORM = (
+    "https://github.com/pioarduino/platform-espressif32/releases/download/"
+    "stable/platform-espressif32.zip"
+)
 MAX_PIN = 48
 BLINK_INTERVAL_MS = 500
 UPLOAD_TIMEOUT_SECONDS = 1800
@@ -58,7 +63,7 @@ void loop() {
 
 PLATFORMIO_INI = """\
 [env:esp32]
-platform = espressif32
+platform = {platform}
 board = {board}
 framework = arduino
 monitor_speed = 115200
@@ -113,18 +118,20 @@ raise SystemExit(1)
 
 @dataclass(frozen=True)
 class BlinkTarget:
-    """Resolved PlatformIO board, LED pin, and USB-CDC sketch flags."""
+    """Resolved PlatformIO board, LED pin, USB-CDC flags, and platform."""
 
     board: str
     pin: int
     usb_cdc: bool
     chip: str
+    platform: str = DEFAULT_PLATFORM
 
 
 CHIP_TARGETS: dict[str, BlinkTarget] = {
     "ESP32-S3": BlinkTarget("esp32-s3-devkitc-1", 48, True, "ESP32-S3"),
     "ESP32-S2": BlinkTarget("esp32-s2-saola-1", 18, True, "ESP32-S2"),
     "ESP32-C6": BlinkTarget("esp32-c6-devkitc-1", 8, True, "ESP32-C6"),
+    "ESP32-C5": BlinkTarget("esp32-c5-devkitc-1", 27, True, "ESP32-C5", PIOARDUINO_PLATFORM),
     "ESP32-C3": BlinkTarget("esp32-c3-devkitm-1", 8, True, "ESP32-C3"),
     "ESP32-H2": BlinkTarget("esp32-h2-devkitm-1", 8, True, "ESP32-H2"),
     "ESP32-C2": BlinkTarget("esp32-c2-devkitm-1", 8, True, "ESP32-C2"),
@@ -203,7 +210,7 @@ def resolve_blink_target(chip: str, board: str | None, pin: int | None) -> Blink
     if not resolved_board:
         raise SetupError("board id must not be empty")
     resolved_pin = defaults.pin if pin is None else validate_pin(pin)
-    return BlinkTarget(resolved_board, resolved_pin, defaults.usb_cdc, chip)
+    return replace(defaults, board=resolved_board, pin=resolved_pin)
 
 
 def detect_chip(runner: Runner, venv_python: Path, port: str) -> str:
@@ -249,11 +256,13 @@ def write_blink_project(
     port: str,
     usb_cdc: bool,
     dry_run: bool,
+    platform: str = DEFAULT_PLATFORM,
 ) -> None:
     """Write ``platformio.ini`` and the Arduino blink sketch."""
     _write_text(
         project_dir / "platformio.ini",
         PLATFORMIO_INI.format(
+            platform=platform,
             board=board,
             pin=pin,
             port=port,
@@ -353,6 +362,7 @@ def run_blink(
         pin=target.pin,
         port=resolved_port,
         usb_cdc=target.usb_cdc,
+        platform=target.platform,
         dry_run=runner.dry_run,
     )
     logger.info(

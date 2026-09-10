@@ -9,9 +9,11 @@ import pytest
 from esp32_dev.blink import (
     BLINK_SKETCH,
     DEFAULT_BOARD,
+    DEFAULT_PLATFORM,
     LED_OFF_MESSAGE,
     LED_ON_MESSAGE,
     MAX_PIN,
+    PIOARDUINO_PLATFORM,
     blink_console_ok,
     blink_project_dir,
     check_blink_console,
@@ -114,29 +116,44 @@ def test_target_and_resolve_blink_target() -> None:
     classic = target_for_chip("ESP32")
     assert classic.board == DEFAULT_BOARD
     assert classic.usb_cdc is False
+    assert classic.platform == DEFAULT_PLATFORM
     s3 = resolve_blink_target("ESP32-S3", None, None)
     assert s3.board == "esp32-s3-devkitc-1"
     assert s3.pin == 48
     assert s3.usb_cdc is True
+    assert s3.platform == DEFAULT_PLATFORM
     override = resolve_blink_target("ESP32-S3", " custom ", 4)
     assert override.board == "custom"
     assert override.pin == 4
     assert override.usb_cdc is True
-    unknown = resolve_blink_target("ESP32-C5", "devkit", 7)
+    assert override.platform == DEFAULT_PLATFORM
+    c5 = resolve_blink_target("ESP32-C5", None, None)
+    assert c5.board == "esp32-c5-devkitc-1"
+    assert c5.pin == 27
+    assert c5.usb_cdc is True
+    assert c5.platform == PIOARDUINO_PLATFORM
+    c5_override = resolve_blink_target("ESP32-C5", " custom-c5 ", 7)
+    assert c5_override.board == "custom-c5"
+    assert c5_override.pin == 7
+    assert c5_override.platform == PIOARDUINO_PLATFORM
+    unknown = resolve_blink_target("ESP32-P4", "devkit", 7)
     assert unknown.usb_cdc is True
     assert unknown.board == "devkit"
+    assert unknown.platform == DEFAULT_PLATFORM
     with pytest.raises(SetupError, match="unsupported ESP32 chip"):
-        target_for_chip("ESP32-C5")
+        target_for_chip("ESP32-P4")
     with pytest.raises(SetupError, match="unsupported ESP32 chip"):
-        resolve_blink_target("ESP32-C5", None, 2)
+        resolve_blink_target("ESP32-P4", None, 2)
     with pytest.raises(SetupError, match="unsupported ESP32 chip"):
-        resolve_blink_target("ESP32-C5", "board", None)
+        resolve_blink_target("ESP32-P4", "board", None)
+    with pytest.raises(SetupError, match="board id must not be empty"):
+        resolve_blink_target("ESP32-P4", "  ", 2)
     with pytest.raises(SetupError, match="board id must not be empty"):
         resolve_blink_target("ESP32-C5", "  ", 2)
     with pytest.raises(SetupError, match="board id must not be empty"):
         resolve_blink_target("ESP32", "  ", 2)
     with pytest.raises(SetupError, match="invalid GPIO pin"):
-        resolve_blink_target("ESP32-C5", "board", -1)
+        resolve_blink_target("ESP32-P4", "board", -1)
 
 
 def test_validate_pin() -> None:
@@ -175,6 +192,7 @@ def test_write_blink_project(tmp_path: Path) -> None:
         dry_run=False,
     )
     ini = (project / "platformio.ini").read_text(encoding="utf-8")
+    assert f"platform = {DEFAULT_PLATFORM}" in ini
     assert "board = esp32dev" in ini
     assert "upload_port = /dev/ttyUSB0" in ini
     assert "monitor_port = /dev/ttyUSB0" in ini
@@ -193,6 +211,18 @@ def test_write_blink_project(tmp_path: Path) -> None:
     )
     s3_ini = (project / "platformio.ini").read_text(encoding="utf-8")
     assert "ARDUINO_USB_CDC_ON_BOOT" in s3_ini
+    write_blink_project(
+        project,
+        board="esp32-c5-devkitc-1",
+        pin=27,
+        port="/dev/ttyACM0",
+        usb_cdc=True,
+        platform=PIOARDUINO_PLATFORM,
+        dry_run=False,
+    )
+    c5_ini = (project / "platformio.ini").read_text(encoding="utf-8")
+    assert f"platform = {PIOARDUINO_PLATFORM}" in c5_ini
+    assert "board = esp32-c5-devkitc-1" in c5_ini
     dry = tmp_path / "dry"
     write_blink_project(
         dry,
@@ -306,9 +336,28 @@ def test_run_blink_auto_s3(
     run_blink(config, runner, FakeHost(tmp_path), port=str(port))
     ini = (blink_project_dir(config) / "platformio.ini").read_text(encoding="utf-8")
     assert "esp32-s3-devkitc-1" in ini
+    assert f"platform = {DEFAULT_PLATFORM}" in ini
     assert "-DLED_PIN=48" in ini
     assert "ARDUINO_USB_CDC_ON_BOOT" in ini
     assert "ESP32-S3" in capsys.readouterr().out
+
+
+def test_run_blink_auto_c5(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("esp32_dev.blink.pause", lambda _seconds: None)
+    config, _python = _ready_config(tmp_path)
+    port = tmp_path / "ttyACM0"
+    port.write_text("", encoding="utf-8")
+    runner = FakeRunner()
+    runner.chip_id_result = CommandResult(0, "Chip type:          ESP32-C5 (revision v1.0)\n", "")
+    run_blink(config, runner, FakeHost(tmp_path), port=str(port))
+    ini = (blink_project_dir(config) / "platformio.ini").read_text(encoding="utf-8")
+    assert "esp32-c5-devkitc-1" in ini
+    assert f"platform = {PIOARDUINO_PLATFORM}" in ini
+    assert "-DLED_PIN=27" in ini
+    assert "ARDUINO_USB_CDC_ON_BOOT" in ini
+    assert "ESP32-C5" in capsys.readouterr().out
 
 
 def test_run_blink_dry_run(
@@ -340,17 +389,18 @@ def test_run_blink_unknown_chip_with_overrides(
     port = tmp_path / "ttyUSB0"
     port.write_text("", encoding="utf-8")
     runner = FakeRunner()
-    runner.chip_id_result = CommandResult(0, "Chip type: ESP32-C5\n", "")
+    runner.chip_id_result = CommandResult(0, "Chip type: ESP32-P4\n", "")
     run_blink(
         config,
         runner,
         FakeHost(tmp_path),
         port=str(port),
-        board="custom-c5",
+        board="custom-p4",
         pin=5,
     )
     ini = (blink_project_dir(config) / "platformio.ini").read_text(encoding="utf-8")
-    assert "board = custom-c5" in ini
+    assert "board = custom-p4" in ini
+    assert f"platform = {DEFAULT_PLATFORM}" in ini
     assert "-DLED_PIN=5" in ini
     assert "ARDUINO_USB_CDC_ON_BOOT" in ini
 
