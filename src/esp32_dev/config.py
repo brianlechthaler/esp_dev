@@ -6,14 +6,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from esp32_dev.errors import SetupError
+from esp32_dev.pins import ESPTOOL_VERSION, IDF_VERSION, PLATFORMIO_VERSION
 
-DEFAULT_IDF_VERSION = "latest"
+DEFAULT_IDF_VERSION = IDF_VERSION
 DEFAULT_IDF_REPO = "https://github.com/espressif/esp-idf.git"
 DEFAULT_IDF_TARGETS: tuple[str, ...] = ("esp32",)
 DEFAULT_PREFIX_NAME = ".esp32-dev"
 PARTIAL_SUFFIX = ".partial"
-ESPTOOL_SPEC = "esptool"
-PLATFORMIO_SPEC = "platformio"
+ESPTOOL_SPEC = f"esptool=={ESPTOOL_VERSION}"
+PLATFORMIO_SPEC = f"platformio=={PLATFORMIO_VERSION}"
 MIN_PYTHON = (3, 10)
 DIALOUT_GROUP = "dialout"
 RUSTUP_INIT_URL = "https://sh.rustup.rs"

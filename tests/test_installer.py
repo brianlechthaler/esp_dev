@@ -47,6 +47,7 @@ from esp32_dev.installer import (
     user_in_group,
     verify_ok,
 )
+from esp32_dev.pins import CARGO_CRATE_VERSIONS, RUST_VERSION
 from esp32_dev.process import CommandResult
 from tests.conftest import FakeHost, FakeRunner, make_config
 
@@ -678,7 +679,8 @@ def test_run_setup_full(tmp_path: Path) -> None:
     assert runner.has_args("usermod")
     assert (tmp_path / ".bashrc").is_file()
     rustup = str(config.cargo_bin / "rustup")
-    assert runner.has_args(rustup, "toolchain", "install", "stable")
+    assert runner.has_args(rustup, "toolchain", "install", RUST_VERSION)
+    assert runner.has_args(rustup, "default", RUST_VERSION)
     assert runner.has_args(str(config.cargo_bin / "espup"), "install")
     activate = config.activate_script.read_text(encoding="utf-8")
     assert "CARGO_HOME" in activate
@@ -773,15 +775,30 @@ def test_install_rust_downloads_toolchain_and_crates(tmp_path: Path) -> None:
     assert any(call["args"][:2] == ["sh", "-s"] for call in runner.calls)
     rustup = str(config.cargo_bin / "rustup")
     cargo = str(config.cargo_bin / "cargo")
-    assert runner.has_args(rustup, "toolchain", "install", "stable")
+    assert runner.has_args(rustup, "toolchain", "install", RUST_VERSION)
+    assert runner.has_args(rustup, "default", RUST_VERSION)
     assert runner.has_args(rustup, "target", "add")
     target_calls = [call["args"] for call in runner.calls if call["args"][:2] == [rustup, "target"]]
     assert any("riscv32imc-unknown-none-elf" in args for args in target_calls)
     assert any("riscv32imac-unknown-none-elf" in args for args in target_calls)
-    assert runner.has_args(cargo, "install", "--locked", "espup")
+    assert runner.has_args(
+        cargo, "install", "--locked", "--version", CARGO_CRATE_VERSIONS["espup"], "espup"
+    )
     assert runner.has_args(str(config.cargo_bin / "espup"), "install", "--export-file")
-    assert runner.has_args(cargo, "install", "--locked", "ldproxy")
-    assert runner.has_args(cargo, "install", "--locked", "esp-generate")
+    assert runner.has_args(
+        cargo, "install", "--locked", "--version", CARGO_CRATE_VERSIONS["ldproxy"], "ldproxy"
+    )
+    assert runner.has_args(
+        cargo,
+        "install",
+        "--locked",
+        "--version",
+        CARGO_CRATE_VERSIONS["esp-generate"],
+        "esp-generate",
+    )
+    assert (config.cargo_bin / "espup.version").read_text(encoding="utf-8") == (
+        CARGO_CRATE_VERSIONS["espup"] + "\n"
+    )
     assert config.export_esp_script.is_file()
     assert (config.cargo_bin / "rustup").is_file()
 
@@ -792,6 +809,10 @@ def test_install_rust_reuses_existing_bins(tmp_path: Path) -> None:
     crates = ("rustup", "cargo", "espup", "ldproxy", "espflash", "cargo-espflash", "esp-generate")
     for name in crates:
         (config.cargo_bin / name).write_text("#!/bin/sh\n", encoding="utf-8")
+        if name in CARGO_CRATE_VERSIONS:
+            (config.cargo_bin / f"{name}.version").write_text(
+                CARGO_CRATE_VERSIONS[name] + "\n", encoding="utf-8"
+            )
     config.export_esp_script.write_text("export LIBCLANG_PATH=/x\n", encoding="utf-8")
     runner = FakeRunner()
     install_rust(config, runner)
@@ -800,7 +821,59 @@ def test_install_rust_reuses_existing_bins(tmp_path: Path) -> None:
     assert not any(call["args"][:2] == ["sh", "-s"] for call in runner.calls)
     assert not runner.has_args(str(config.cargo_bin / "cargo"), "install")
     assert not runner.has_args(str(config.cargo_bin / "espup"), "install")
-    assert runner.has_args(str(config.cargo_bin / "rustup"), "toolchain", "install", "stable")
+    assert runner.has_args(str(config.cargo_bin / "rustup"), "toolchain", "install", RUST_VERSION)
+    assert runner.has_args(str(config.cargo_bin / "rustup"), "default", RUST_VERSION)
+
+
+def test_install_rust_replaces_stale_crate(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    config.cargo_bin.mkdir(parents=True)
+    for name in ("rustup", "cargo", "espup"):
+        (config.cargo_bin / name).write_text("#!/bin/sh\n", encoding="utf-8")
+    (config.cargo_bin / "espup.version").write_text("0.0.1\n", encoding="utf-8")
+    (config.cargo_bin / "ldproxy.version").write_text("   \n", encoding="utf-8")
+    config.export_esp_script.write_text("export LIBCLANG_PATH=/x\n", encoding="utf-8")
+    runner = FakeRunner()
+    install_rust(config, runner)
+    cargo = str(config.cargo_bin / "cargo")
+    assert runner.has_args(
+        cargo, "install", "--locked", "--force", "--version", CARGO_CRATE_VERSIONS["espup"], "espup"
+    )
+    assert runner.has_args(
+        cargo, "install", "--locked", "--version", CARGO_CRATE_VERSIONS["ldproxy"], "ldproxy"
+    )
+
+
+def test_install_rust_ignores_unreadable_stamp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = make_config(tmp_path)
+    config.cargo_bin.mkdir(parents=True)
+    for name in ("rustup", "cargo", "espup"):
+        (config.cargo_bin / name).write_text("#!/bin/sh\n", encoding="utf-8")
+    (config.cargo_bin / "espup.version").write_text("1\n", encoding="utf-8")
+    config.export_esp_script.write_text("export LIBCLANG_PATH=/x\n", encoding="utf-8")
+    real_read = Path.read_text
+
+    def flaky_read(self: Path, *args: object, **kwargs: object) -> str:
+        if self.name.endswith(".version"):
+            raise OSError("denied")
+        return real_read(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "read_text", flaky_read)
+    runner = FakeRunner()
+    install_rust(config, runner)
+    cargo = str(config.cargo_bin / "cargo")
+    assert runner.has_args(
+        cargo, "install", "--locked", "--force", "--version", CARGO_CRATE_VERSIONS["espup"], "espup"
+    )
+
+
+def test_install_rust_dry_run_skips_stamp(tmp_path: Path) -> None:
+    config = make_config(tmp_path, dry_run=True)
+    runner = FakeRunner(dry_run=True)
+    install_rust(config, runner)
+    assert not (config.cargo_bin / "espup.version").exists()
 
 
 def test_install_rust_force_reinstalls(tmp_path: Path) -> None:
@@ -813,7 +886,9 @@ def test_install_rust_force_reinstalls(tmp_path: Path) -> None:
     install_rust(config, runner)
     cargo = str(config.cargo_bin / "cargo")
     assert runner.has_args("curl", "-sSfL", RUSTUP_INIT_URL)
-    assert runner.has_args(cargo, "install", "--locked", "--force", "espup")
+    assert runner.has_args(
+        cargo, "install", "--locked", "--force", "--version", CARGO_CRATE_VERSIONS["espup"], "espup"
+    )
     assert runner.has_args(str(config.cargo_bin / "espup"), "install", "--export-file")
 
 

@@ -79,7 +79,10 @@ def _add_setup_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--idf-version",
         default=DEFAULT_IDF_VERSION,
-        help="ESP-IDF git branch or tag (default: latest GitHub release)",
+        help=(
+            "ESP-IDF git branch or tag "
+            f"(default: pinned {DEFAULT_IDF_VERSION}; latest/stable query GitHub)"
+        ),
     )
     parser.add_argument(
         "--idf-repo",

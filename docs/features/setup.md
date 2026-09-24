@@ -8,7 +8,7 @@ Installs host packages, a tools virtualenv (esptool and PlatformIO), ESP-IDF, th
 
 Linux and Python 3.10+ are required. Default prefix is `~/.esp32-dev`.
 
-ESP-IDF version defaults to the latest GitHub release (`latest` or `stable` are aliases). Pin a tag with `--idf-version v6.1`. esptool and PlatformIO are `pip install --upgrade` with no upper bound. Rust uses the official rustup installer plus `espup` (see [Rust](rust.md)).
+ESP-IDF, esptool, PlatformIO, Rust, and the ESP cargo crates are pinned in `src/esp32_dev/pins.py`. `setup` installs those versions. Pass `--idf-version latest` or `--idf-version stable` to resolve ESP-IDF from GitHub at install time instead of using the pin. A weekly GitHub Actions job rewrites `pins.py` when a newer stable release exists and opens a pull request. See [Rust](rust.md).
 
 ESP-IDF is cloned with `--depth 1` and shallow submodules. Use `--full-idf-clone` for full history. Git clone/fetch progress is streamed.
 
@@ -40,7 +40,7 @@ Both print one row per check: git, cmake, ninja, python3, venv, esptool, platfor
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--prefix` | `~/.esp32-dev` | Install root |
-| `--idf-version` | `latest` | ESP-IDF git branch or tag; `latest`/`stable` query GitHub |
+| `--idf-version` | pin in `pins.py` | ESP-IDF git branch or tag; `latest`/`stable` query GitHub |
 | `--idf-repo` | `https://github.com/espressif/esp-idf.git` | Clone URL |
 | `--idf-targets` | `esp32` | Comma-separated chips passed to ESP-IDF `install.sh` |
 | `--skip-packages` | off | Do not install distro packages |

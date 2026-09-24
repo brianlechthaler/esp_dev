@@ -19,6 +19,7 @@ from esp32_dev.cli import (
     parse_idf_targets,
     prefix_from_args,
 )
+from esp32_dev.config import DEFAULT_IDF_VERSION
 from esp32_dev.errors import SetupError
 from tests.conftest import FakeHost, FakeRunner
 
@@ -100,7 +101,7 @@ def test_config_from_args_default_is_shallow(tmp_path: Path) -> None:
     parser = build_parser()
     args = parser.parse_args(["setup", "--prefix", str(tmp_path)])
     assert config_from_args(args).shallow_idf is True
-    assert config_from_args(args).idf_version == "latest"
+    assert config_from_args(args).idf_version == DEFAULT_IDF_VERSION
 
 
 def test_config_from_args_skip_shell(tmp_path: Path) -> None:
