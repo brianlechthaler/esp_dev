@@ -1,0 +1,61 @@
+name: Bump toolchains
+
+on:
+  schedule:
+    # Mondays at 09:00 UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply toolchain pin updates
+        id: versions
+        run: |
+          set -euo pipefail
+          python3 scripts/toolchain-versions.py apply
+          if git diff --quiet -- src/esp32_dev/pins.py; then
+            echo "update_needed=false" >> "${GITHUB_OUTPUT}"
+            echo "Already on the latest pinned toolchains."
+          else
+            echo "update_needed=true" >> "${GITHUB_OUTPUT}"
+            echo "Update available:"
+            git diff -- src/esp32_dev/pins.py
+          fi
+
+      - name: Create pull request
+        id: pr
+        if: steps.versions.outputs.update_needed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: deps/toolchains-${{ github.run_id }}
+          title: Bump pinned toolchains
+          commit-message: Bump pinned toolchains
+          body: |
+            Automated weekly bump of the toolchain versions in `src/esp32_dev/pins.py`.
+
+            This PR will be merged automatically after the Test workflow passes.
+          labels: automerge
+          add-paths: |
+            src/esp32_dev/pins.py
+
+      # PRs opened with GITHUB_TOKEN do not trigger pull_request workflows.
+      # workflow_dispatch is an allowed exception, so kick Test on the bump
+      # branch; its automerge job squash-merges when the automerge label is set.
+      - name: Run Test workflow on the bump branch
+        if: steps.pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh workflow run Test --ref "${{ steps.pr.outputs.pull-request-branch }}"

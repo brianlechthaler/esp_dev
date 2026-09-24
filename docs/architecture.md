@@ -12,7 +12,7 @@ Default prefix is `~/.esp32-dev` (`SetupConfig.prefix`). After a full setup:
 | `venv/` | Python virtualenv with esptool and PlatformIO |
 | `esp-idf/` | ESP-IDF clone; `install.sh` has been run for the selected targets |
 | `cargo/` | `CARGO_HOME` (rustup, cargo, espup, espflash, esp-generate) |
-| `rustup/` | `RUSTUP_HOME` (stable + Espressif Xtensa toolchain) |
+| `rustup/` | `RUSTUP_HOME` (pinned Rust plus the Espressif Xtensa toolchain) |
 | `export-esp.sh` | Xtensa env vars written by `espup install` |
 | `projects/blink/` | Generated PlatformIO project used by `blink` |
 
@@ -53,6 +53,8 @@ flowchart LR
 | `blink.py` | Chip detect, PlatformIO blink sketch, serial confirm |
 | `detect.py` | `/etc/os-release` → distro family and package list |
 | `releases.py` | Resolve `latest` / `stable` to the current ESP-IDF GitHub release tag |
+| `pins.py` | Pinned ESP-IDF, esptool, PlatformIO, Rust, and cargo crate versions |
+| `toolchain.py` | Look up newer stable releases and rewrite `pins.py` |
 | `process.py` | `Host` and `Runner` (real OS vs tests; `--dry-run` skips mutating commands) |
 | `skill_install.py` / `install.py` | Copy or symlink `esp32-dev/` into agent skill directories |
 

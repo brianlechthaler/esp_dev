@@ -6,7 +6,7 @@ Installs a prefix-local Rust toolchain for Espressif chips: rustup, RISC-V targe
 
 Setup follows [The Rust on ESP Book](https://docs.espressif.com/projects/rust/book/getting-started/toolchain.html). rustup is installed with the official installer (not a distro package). `CARGO_HOME` and `RUSTUP_HOME` live under the prefix (`~/.esp32-dev/cargo` and `~/.esp32-dev/rustup` by default) so the toolkit does not reuse or overwrite a user-level rustup.
 
-`espup install` provides the Xtensa Rust fork (ESP32, ESP32-S2, ESP32-S3), LLVM, and GCC. RISC-V chips use stable Rust plus `rust-src` and the `riscv32imc` / `riscv32imac` targets.
+`espup install` provides the Xtensa Rust fork (ESP32, ESP32-S2, ESP32-S3), LLVM, and GCC. RISC-V chips use the pinned Rust release plus `rust-src` and the `riscv32imc` / `riscv32imac` targets.
 
 Cargo crates installed into the prefix: `espup`, `ldproxy`, `espflash`, `cargo-espflash`, `esp-generate`.
 
@@ -40,7 +40,7 @@ Replace `-o esp32` with the chip (`esp32s3`, `esp32c3`, and so on). `esp-generat
 | `--skip-rust` | off | Do not install rustup, espup, or ESP cargo tools |
 | `--force` | off | Re-run rustup-init, `espup install`, and `cargo install --force` |
 
-There is no separate Rust version flag. rustup uses `stable`. `espup install` uses its defaults (all Espressif targets).
+Versions live in `src/esp32_dev/pins.py`. rustup installs that Rust release (not the floating `stable` channel). Each cargo crate is installed at its pinned version, and a later `setup` replaces a crate when the pin changes. `espup install` still uses its defaults for Espressif targets. The weekly toolchain bump updates the pin file.
 
 ## Layout
 

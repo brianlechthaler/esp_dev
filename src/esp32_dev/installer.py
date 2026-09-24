@@ -29,6 +29,7 @@ from esp32_dev.detect import (
     read_os_release,
 )
 from esp32_dev.errors import SetupError
+from esp32_dev.pins import CARGO_CRATE_VERSIONS, RUST_VERSION
 from esp32_dev.process import Host, Runner
 from esp32_dev.releases import resolve_idf_version
 from esp32_dev.shell import generate_activate_fish, generate_activate_script, install_shell_hooks
@@ -432,17 +433,39 @@ def _fetch_rustup_script(runner: Runner) -> str:
     raise SetupError("curl or wget is required to install rustup")
 
 
+def _crate_version_stamp(config: SetupConfig, crate: str) -> Path:
+    return config.cargo_bin / f"{crate}.version"
+
+
+def _recorded_crate_version(config: SetupConfig, crate: str) -> str | None:
+    stamp = _crate_version_stamp(config, crate)
+    try:
+        if not stamp.is_file():
+            return None
+        text = stamp.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return text or None
+
+
 def _cargo_install(config: SetupConfig, runner: Runner, crate: str) -> None:
+    version = CARGO_CRATE_VERSIONS[crate]
     dest = config.cargo_bin / crate
-    if dest.is_file() and not config.force:
-        logger.info("%s already installed at %s", crate, dest)
+    recorded = _recorded_crate_version(config, crate)
+    if dest.is_file() and recorded == version and not config.force:
+        logger.info("%s %s already installed at %s", crate, version, dest)
         return
     args = [str(config.cargo_bin / "cargo"), "install", "--locked"]
-    if config.force:
+    if config.force or dest.is_file():
         args.append("--force")
-    args.append(crate)
-    logger.info("installing %s", crate)
+    args.extend(["--version", version, crate])
+    logger.info("installing %s %s", crate, version)
     runner.run(args, env=rust_env(config), mutate=True, stream=True)
+    if runner.dry_run:
+        return
+    stamp = _crate_version_stamp(config, crate)
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text(version + "\n", encoding="utf-8")
 
 
 def install_rust(config: SetupConfig, runner: Runner) -> None:
@@ -456,7 +479,7 @@ def install_rust(config: SetupConfig, runner: Runner) -> None:
         logger.info("installing rustup into %s", config.cargo_home)
         script = _fetch_rustup_script(runner)
         runner.run(
-            ["sh", "-s", "--", "-y", "--no-modify-path", "--default-toolchain", "stable"],
+            ["sh", "-s", "--", "-y", "--no-modify-path", "--default-toolchain", RUST_VERSION],
             stdin=script,
             env=env,
             mutate=True,
@@ -468,7 +491,13 @@ def install_rust(config: SetupConfig, runner: Runner) -> None:
     for name in RUST_COMPONENTS:
         components.extend(["--component", name])
     runner.run(
-        [str(rustup), "toolchain", "install", "stable", *components],
+        [str(rustup), "toolchain", "install", RUST_VERSION, *components],
+        env=env,
+        mutate=True,
+        stream=True,
+    )
+    runner.run(
+        [str(rustup), "default", RUST_VERSION],
         env=env,
         mutate=True,
         stream=True,

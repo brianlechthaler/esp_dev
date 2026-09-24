@@ -211,7 +211,14 @@ def _apply_side_effects(cmd: list[str], env: dict[str, str] | None = None) -> No
             _write_stub(cargo_home / "bin" / name)
         return
     if cargo_home.parts and Path(cmd[0]).name == "cargo" and "install" in cmd:
+        skip_next = False
         for part in cmd[2:]:
+            if skip_next:
+                skip_next = False
+                continue
+            if part == "--version":
+                skip_next = True
+                continue
             if part.startswith("-"):
                 continue
             _write_stub(cargo_home / "bin" / part)
