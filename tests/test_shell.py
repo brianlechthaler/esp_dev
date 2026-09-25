@@ -13,9 +13,15 @@ from esp32_dev.shell import (
     install_shell_hooks,
     login_shell_name,
     rc_files_to_hook,
+    shell_single_quote,
     upsert_hook,
 )
 from tests.conftest import FakeHost, FakeRunner, make_config
+
+
+def test_shell_single_quote_escapes_metacharacters() -> None:
+    assert shell_single_quote("/tmp/ok") == "'/tmp/ok'"
+    assert shell_single_quote("""/tmp/a'$(id)"b""") == """'/tmp/a'\\''$(id)"b'"""
 
 
 def test_login_shell_name() -> None:
@@ -53,7 +59,7 @@ def test_rc_files_for_each_common_shell(tmp_path: Path) -> None:
 def test_generate_activate_script_is_posix_and_guarded(tmp_path: Path) -> None:
     config = make_config(tmp_path)
     script = generate_activate_script(config)
-    assert f'ESP32_DEV_PREFIX="{config.prefix}"' in script
+    assert f"ESP32_DEV_PREFIX={shell_single_quote(str(config.prefix))}" in script
     assert "ESP32_DEV_ACTIVE" in script
     assert "venv/bin/activate" in script
     assert "IDF_PATH" in script
@@ -67,7 +73,7 @@ def test_generate_activate_script_is_posix_and_guarded(tmp_path: Path) -> None:
 def test_generate_activate_fish(tmp_path: Path) -> None:
     config = make_config(tmp_path)
     script = generate_activate_fish(config)
-    assert f'set -gx ESP32_DEV_PREFIX "{config.prefix}"' in script
+    assert f"set -gx ESP32_DEV_PREFIX {shell_single_quote(str(config.prefix))}" in script
     assert "activate.fish" in script
     assert "export.fish" in script
     assert "ESP32_DEV_ACTIVE" in script

@@ -260,7 +260,7 @@ def make_executable_sh_files(dest: Path) -> None:
     for sh_file in dest.rglob("*.sh"):
         if sh_file.is_file():
             mode = sh_file.stat().st_mode
-            sh_file.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            sh_file.chmod(mode | stat.S_IXUSR)
 
 
 def remove_destination(dest: Path) -> None:

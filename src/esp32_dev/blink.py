@@ -156,6 +156,7 @@ def resolve_serial_port(requested: str | None) -> str:
     """Return an explicit serial port, or the only attached USB serial device."""
     selected = requested.strip() if requested is not None else ""
     if selected:
+        require_single_line("serial port", selected)
         path = Path(selected)
         if not path.exists():
             raise SetupError(f"serial port not found: {selected}")
@@ -188,6 +189,13 @@ def target_for_chip(chip: str) -> BlinkTarget:
     return target
 
 
+def require_single_line(label: str, value: str) -> str:
+    """Reject values that could inject extra PlatformIO config lines."""
+    if any(char in value for char in "\n\r\x00"):
+        raise SetupError(f"{label} must be a single line")
+    return value
+
+
 def validate_pin(pin: int) -> int:
     """Require a GPIO pin in the supported range."""
     if pin < 0 or pin > MAX_PIN:
@@ -205,10 +213,16 @@ def resolve_blink_target(chip: str, board: str | None, pin: int | None) -> Blink
         resolved_board = board.strip()
         if not resolved_board:
             raise SetupError("board id must not be empty") from None
-        return BlinkTarget(resolved_board, validate_pin(pin), True, chip)
+        return BlinkTarget(
+            require_single_line("board id", resolved_board),
+            validate_pin(pin),
+            True,
+            chip,
+        )
     resolved_board = board.strip() if board is not None else defaults.board
     if not resolved_board:
         raise SetupError("board id must not be empty")
+    require_single_line("board id", resolved_board)
     resolved_pin = defaults.pin if pin is None else validate_pin(pin)
     return replace(defaults, board=resolved_board, pin=resolved_pin)
 
@@ -259,6 +273,9 @@ def write_blink_project(
     platform: str = DEFAULT_PLATFORM,
 ) -> None:
     """Write ``platformio.ini`` and the Arduino blink sketch."""
+    board = require_single_line("board id", board)
+    port = require_single_line("serial port", port)
+    platform = require_single_line("platform", platform)
     _write_text(
         project_dir / "platformio.ini",
         PLATFORMIO_INI.format(

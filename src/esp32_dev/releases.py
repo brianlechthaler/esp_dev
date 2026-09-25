@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from urllib.error import URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from esp32_dev.errors import SetupError
@@ -21,10 +22,18 @@ def is_latest_alias(version: str) -> bool:
     return version.strip().lower() in LATEST_ALIASES
 
 
+def require_https(url: str) -> str:
+    """Reject URLs that are not https."""
+    if urlparse(url).scheme != "https":
+        raise SetupError(f"refusing non-https URL: {url}")
+    return url
+
+
 def fetch_latest_idf_release_tag(
     url: str = GITHUB_IDF_LATEST_RELEASE_URL,
 ) -> str:
     """Return the latest non-prerelease ESP-IDF git tag from GitHub."""
+    require_https(url)
     request = Request(
         url,
         headers={

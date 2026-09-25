@@ -8,6 +8,9 @@ from esp32_dev.config import (
     DEFAULT_PREFIX_NAME,
     default_prefix,
     default_udev_path,
+    rustup_triple,
+    validate_idf_repo,
+    validate_idf_version,
 )
 from esp32_dev.errors import SetupError
 from tests.conftest import make_config
@@ -59,6 +62,28 @@ def test_empty_targets_rejected(tmp_path: Path) -> None:
 def test_empty_version_rejected(tmp_path: Path) -> None:
     with pytest.raises(SetupError, match="version must not be empty"):
         make_config(tmp_path, idf_version="  ")
+
+
+def test_idf_ref_and_repo_reject_options(tmp_path: Path) -> None:
+    assert validate_idf_version("v6.1") == "v6.1"
+    assert validate_idf_version("release/v5.2") == "release/v5.2"
+    with pytest.raises(SetupError, match="invalid ESP-IDF version"):
+        validate_idf_version("--upload-pack=touch")
+    with pytest.raises(SetupError, match="invalid ESP-IDF version"):
+        make_config(tmp_path, idf_version="--branch")
+    assert validate_idf_repo("https://github.com/espressif/esp-idf.git").startswith("https://")
+    assert validate_idf_repo("git@github.com:espressif/esp-idf.git").startswith("git@")
+    with pytest.raises(SetupError, match="https or git@"):
+        validate_idf_repo("file:///tmp/idf")
+    with pytest.raises(SetupError, match="invalid ESP-IDF repository"):
+        make_config(tmp_path, idf_repo="-https://example.test/idf")
+
+
+def test_rustup_triple_rejects_unknown_cpu() -> None:
+    assert rustup_triple("x86_64") == "x86_64-unknown-linux-gnu"
+    assert rustup_triple("arm64") == "aarch64-unknown-linux-gnu"
+    with pytest.raises(SetupError, match="unsupported CPU"):
+        rustup_triple("riscv64")
 
 
 def test_empty_repo_rejected(tmp_path: Path) -> None:

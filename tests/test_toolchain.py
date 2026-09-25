@@ -89,6 +89,8 @@ def test_request_success(monkeypatch: pytest.MonkeyPatch) -> None:
     from esp32_dev.toolchain import _request
 
     assert _request("https://example.test/pins") == "ok"
+    with pytest.raises(SetupError, match="non-https"):
+        _request("file:///tmp/pins")
 
 
 def test_fetch_pypi_and_crate(monkeypatch: pytest.MonkeyPatch) -> None:

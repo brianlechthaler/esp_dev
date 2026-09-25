@@ -20,13 +20,18 @@ def test_dockerfile_toolchain_stage_runs_setup() -> None:
     assert "IDF_TOOLS_PATH=/opt/esp32-dev/.espressif" in stage
     assert "PLATFORMIO_CORE_DIR=/opt/esp32-dev/platformio" in stage
     assert 'ENTRYPOINT ["/app/scripts/toolchain-entrypoint.sh"]' in stage
+    assert "GIT_CONFIG_VALUE_0=/workspace" in stage
+    assert "GIT_CONFIG_VALUE_0=*" not in stage
+    assert "USER esp" in stage
 
 
 def test_toolchain_entrypoint_is_valid_bash() -> None:
     script = ROOT / "scripts" / "toolchain-entrypoint.sh"
     subprocess.run(["bash", "-n", str(script)], check=True)
     text = script.read_text(encoding="utf-8")
+    assert 'prefix="/opt/esp32-dev"' in text
     assert "activate.sh" in text
+    assert "ESP32_DEV_PREFIX:-" not in text
     assert "xtensa-esp32-elf-gcc" in text
     assert 'exec "$@"' in text
 
@@ -44,3 +49,7 @@ def test_compose_firmware_service_uses_toolchain_stage() -> None:
     text = (ROOT / "compose.yaml").read_text(encoding="utf-8")
     assert "target: toolchain" in text
     assert "/workspace" in text
+    assert 'user: "1000:1000"' in text
+    assert "cap_drop:" in text
+    assert "no-new-privileges:true" in text
+    assert "mem_limit:" in text

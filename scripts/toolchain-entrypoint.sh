@@ -2,7 +2,8 @@
 # Activate the baked-in toolchain, then run the container command.
 set -euo pipefail
 
-prefix="${ESP32_DEV_PREFIX:-/opt/esp32-dev}"
+prefix="/opt/esp32-dev"
+export ESP32_DEV_PREFIX="$prefix"
 # shellcheck disable=SC1091
 . "${prefix}/activate.sh"
 

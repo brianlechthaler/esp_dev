@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
+import platform
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,12 +16,16 @@ from esp32_dev.config import (
     ESPTOOL_SPEC,
     MIN_PYTHON,
     PARTIAL_SUFFIX,
+    PIP_SPEC,
     PLATFORMIO_SPEC,
     RISCV_TARGETS,
     RUST_COMPONENTS,
-    RUSTUP_INIT_URL,
+    RUSTUP_INIT_SHA256,
     UDEV_RULES,
     SetupConfig,
+    rustup_init_archive_url,
+    rustup_triple,
+    validate_idf_version,
 )
 from esp32_dev.detect import (
     FAMILY_DEBIAN,
@@ -270,7 +276,7 @@ def ensure_venv(config: SetupConfig, runner: Runner, host: Host) -> Path:
         raise SetupError(f"failed to create venv python at {python_path}")
     if not runner.dry_run:
         runner.run(
-            [str(python_path), "-m", "pip", "install", "--upgrade", "pip"],
+            [str(python_path), "-m", "pip", "install", "--upgrade", PIP_SPEC],
             mutate=True,
             timeout=600,
         )
@@ -380,7 +386,7 @@ def _run_idf_install(config: SetupConfig, runner: Runner) -> None:
 
 def install_esp_idf(config: SetupConfig, runner: Runner) -> None:
     """Clone or resume ESP-IDF and run its install script."""
-    config.idf_version = resolve_idf_version(config.idf_version)
+    config.idf_version = validate_idf_version(resolve_idf_version(config.idf_version))
     dest = config.idf_dir
     staging = config.idf_partial_dir
     if staging.exists() or staging.is_symlink():
@@ -425,11 +431,24 @@ def rust_env(config: SetupConfig) -> dict[str, str]:
     return env
 
 
-def _fetch_rustup_script(runner: Runner) -> str:
+def verify_rustup_init(path: Path, triple: str) -> None:
+    """Reject a rustup-init binary whose SHA-256 does not match the pin."""
+    expected = RUSTUP_INIT_SHA256.get(triple)
+    if expected is None:
+        raise SetupError(f"no rustup-init checksum for {triple}")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest != expected:
+        raise SetupError(f"rustup-init checksum mismatch for {triple}")
+
+
+def _download_rustup_init(runner: Runner, dest: Path, triple: str) -> None:
+    url = rustup_init_archive_url(triple)
     if runner.which("curl") is not None:
-        return runner.run(["curl", "-sSfL", RUSTUP_INIT_URL], mutate=True).stdout
+        runner.run(["curl", "-fsSL", "--output", str(dest), url], mutate=True, timeout=600)
+        return
     if runner.which("wget") is not None:
-        return runner.run(["wget", "-qO-", RUSTUP_INIT_URL], mutate=True).stdout
+        runner.run(["wget", "-q", "-O", str(dest), url], mutate=True, timeout=600)
+        return
     raise SetupError("curl or wget is required to install rustup")
 
 
@@ -477,10 +496,14 @@ def install_rust(config: SetupConfig, runner: Runner) -> None:
     rustup = config.cargo_bin / "rustup"
     if not rustup.is_file() or config.force:
         logger.info("installing rustup into %s", config.cargo_home)
-        script = _fetch_rustup_script(runner)
+        triple = rustup_triple(platform.machine())
+        init_bin = config.prefix / "rustup-init"
+        _download_rustup_init(runner, init_bin, triple)
+        if not runner.dry_run:
+            verify_rustup_init(init_bin, triple)
+            init_bin.chmod(0o755)
         runner.run(
-            ["sh", "-s", "--", "-y", "--no-modify-path", "--default-toolchain", RUST_VERSION],
-            stdin=script,
+            [str(init_bin), "-y", "--no-modify-path", "--default-toolchain", RUST_VERSION],
             env=env,
             mutate=True,
             stream=True,

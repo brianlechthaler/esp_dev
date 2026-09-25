@@ -13,7 +13,7 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 COPY scripts ./scripts
 
-RUN pip install --upgrade pip
+RUN pip install "pip==25.2"
 
 FROM base AS test
 
@@ -47,7 +47,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PLATFORMIO_CORE_DIR=/opt/esp32-dev/platformio \
     GIT_CONFIG_COUNT=1 \
     GIT_CONFIG_KEY_0=safe.directory \
-    GIT_CONFIG_VALUE_0=*
+    GIT_CONFIG_VALUE_0=/workspace
 
 ARG IDF_TARGETS=esp32
 ENV IDF_TARGETS=${IDF_TARGETS}
@@ -73,8 +73,12 @@ RUN esp32-dev setup \
     && printf '%s\n' '[env:esp32dev]' 'platform = espressif32' 'board = esp32dev' 'framework = arduino' > /tmp/pio-smoke/platformio.ini \
     && printf '%s\n' 'void setup(){}' 'void loop(){}' > /tmp/pio-smoke/src/main.cpp \
     && /app/scripts/toolchain-entrypoint.sh pio run -d /tmp/pio-smoke \
-    && rm -rf /tmp/pio-smoke
+    && rm -rf /tmp/pio-smoke \
+    && groupadd --gid 1000 esp \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash esp \
+    && chown -R esp:esp /opt/esp32-dev /workspace
 
+USER esp
 WORKDIR /workspace
 ENTRYPOINT ["/app/scripts/toolchain-entrypoint.sh"]
 CMD ["idf.py", "--version"]

@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import pytest
+
 from esp32_dev.config import SetupConfig
 from esp32_dev.errors import SetupError
 from esp32_dev.process import CommandResult
@@ -205,8 +207,14 @@ def _apply_side_effects(cmd: list[str], env: dict[str, str] | None = None) -> No
         (dest / "export.sh").write_text("# export\n", encoding="utf-8")
         (dest / "tools" / "idf.py").write_text("# idf\n", encoding="utf-8")
         return
+    if cmd and cmd[0] in {"curl", "wget"} and ("--output" in cmd or "-O" in cmd):
+        flag = "--output" if "--output" in cmd else "-O"
+        dest = Path(cmd[cmd.index(flag) + 1])
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"rustup-init-stub")
+        return
     cargo_home = Path((env or {}).get("CARGO_HOME", ""))
-    if cmd[:2] == ["sh", "-s"] and "--no-modify-path" in cmd and cargo_home.parts:
+    if Path(cmd[0]).name == "rustup-init" and "--no-modify-path" in cmd and cargo_home.parts:
         for name in ("rustup", "cargo", "rustc"):
             _write_stub(cargo_home / "bin" / name)
         return
@@ -233,6 +241,12 @@ def _apply_side_effects(cmd: list[str], env: dict[str, str] | None = None) -> No
                 'export PATH="/opt/esp-toolchain/bin:$PATH"\n',
                 encoding="utf-8",
             )
+
+
+@pytest.fixture(autouse=True)
+def _accept_rustup_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Installer tests download a stub binary; checksum tests call the real function."""
+    monkeypatch.setattr("esp32_dev.installer.verify_rustup_init", lambda _path, _triple: None)
 
 
 def make_config(tmp_path: Path, **kwargs: object) -> SetupConfig:
