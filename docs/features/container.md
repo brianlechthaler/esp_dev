@@ -15,7 +15,7 @@ The [Dockerfile](../../Dockerfile) has four stages:
 
 The **runtime** image does not include ESP-IDF, PlatformIO platforms, Rust/espup, or a pre-built prefix. It is the installer CLI.
 
-The **toolchain** image runs `esp32-dev setup` at build time. The prefix is `/opt/esp32-dev`. ESP-IDF tools go to `/opt/esp32-dev/.espressif` (`IDF_TOOLS_PATH`). PlatformIO packages go to `/opt/esp32-dev/platformio` (`PLATFORMIO_CORE_DIR`). The image build also compiles a tiny ESP-IDF project and a tiny PlatformIO `esp32dev` Arduino sketch, then deletes those trees, so the compilers and PlatformIO packages are already on disk. udev rules, `dialout`, and shell rc hooks are skipped: serial access stays on the host. Pass `--device` when you need to flash.
+The **toolchain** image runs `esp32-dev setup` at build time. The prefix is `/opt/esp32-dev`. ESP-IDF tools go to `/opt/esp32-dev/.espressif` (`IDF_TOOLS_PATH`). PlatformIO packages go to `/opt/esp32-dev/platformio` (`PLATFORMIO_CORE_DIR`). The image build also compiles a tiny ESP-IDF project and a tiny PlatformIO `esp32dev` Arduino sketch, then deletes those trees, so the compilers and PlatformIO packages are already on disk. The entrypoint puts the ESP-IDF `xtensa-esp32-elf-gcc` ahead of the copy installed by espup, because ESP-IDF rejects the older espup gcc. udev rules, `dialout`, and shell rc hooks are skipped: serial access stays on the host. Pass `--device` when you need to flash.
 
 Build arg `IDF_TARGETS` (default `esp32`) is passed to `setup --idf-targets`. The PlatformIO warm-up is always the `esp32dev` Arduino board.
 

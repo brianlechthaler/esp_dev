@@ -61,23 +61,19 @@ RUN esp32-dev setup \
         --no-sudo \
     && chmod -R a+rX /opt/esp32-dev \
     && chmod +x /app/scripts/toolchain-entrypoint.sh \
-    && bash -ec '\
-        . /opt/esp32-dev/activate.sh; \
-        python -m esptool version; \
-        pio --version; \
-        idf.py --version; \
-        cargo --version; \
-        command -v esp-generate; \
-        target="${IDF_TARGETS%%,*}"; \
-        idf.py create-project --path /tmp/idf-smoke smoke; \
-        (cd /tmp/idf-smoke && idf.py set-target "$target" && idf.py build); \
-        rm -rf /tmp/idf-smoke; \
-        mkdir -p /tmp/pio-smoke/src; \
-        printf "%s\n" "[env:esp32dev]" "platform = espressif32" "board = esp32dev" "framework = arduino" > /tmp/pio-smoke/platformio.ini; \
-        printf "%s\n" "void setup(){}" "void loop(){}" > /tmp/pio-smoke/src/main.cpp; \
-        pio run -d /tmp/pio-smoke; \
-        rm -rf /tmp/pio-smoke \
-      '
+    && /app/scripts/toolchain-entrypoint.sh python -m esptool version \
+    && /app/scripts/toolchain-entrypoint.sh pio --version \
+    && /app/scripts/toolchain-entrypoint.sh idf.py --version \
+    && /app/scripts/toolchain-entrypoint.sh cargo --version \
+    && /app/scripts/toolchain-entrypoint.sh bash -ec 'command -v esp-generate' \
+    && /app/scripts/toolchain-entrypoint.sh idf.py create-project --path /tmp/idf-smoke smoke \
+    && /app/scripts/toolchain-entrypoint.sh bash -ec 'cd /tmp/idf-smoke && idf.py set-target "${IDF_TARGETS%%,*}" && idf.py build' \
+    && rm -rf /tmp/idf-smoke \
+    && mkdir -p /tmp/pio-smoke/src \
+    && printf '%s\n' '[env:esp32dev]' 'platform = espressif32' 'board = esp32dev' 'framework = arduino' > /tmp/pio-smoke/platformio.ini \
+    && printf '%s\n' 'void setup(){}' 'void loop(){}' > /tmp/pio-smoke/src/main.cpp \
+    && /app/scripts/toolchain-entrypoint.sh pio run -d /tmp/pio-smoke \
+    && rm -rf /tmp/pio-smoke
 
 WORKDIR /workspace
 ENTRYPOINT ["/app/scripts/toolchain-entrypoint.sh"]

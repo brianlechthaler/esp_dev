@@ -27,6 +27,7 @@ def test_toolchain_entrypoint_is_valid_bash() -> None:
     subprocess.run(["bash", "-n", str(script)], check=True)
     text = script.read_text(encoding="utf-8")
     assert "activate.sh" in text
+    assert "xtensa-esp32-elf-gcc" in text
     assert 'exec "$@"' in text
 
 
