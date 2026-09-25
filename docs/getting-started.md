@@ -87,4 +87,4 @@ make lint
 make test
 ```
 
-Docker equivalents and the published CLI image: [Container](features/container.md).
+Docker equivalents, the published CLI image, and the firmware toolchain image: [Container](features/container.md).

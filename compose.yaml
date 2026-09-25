@@ -1,0 +1,11 @@
+services:
+  firmware:
+    build:
+      context: .
+      target: toolchain
+      args:
+        IDF_TARGETS: ${IDF_TARGETS:-esp32}
+    image: esp32-dev:toolchain
+    working_dir: /workspace
+    volumes:
+      - ${FIRMWARE_DIR:-.}:/workspace

@@ -11,7 +11,7 @@
 - [Rust](features/rust.md): rustup, espup, RISC-V targets, cargo flash/generate tools
 - [Blink](features/blink.md): flash a LED sketch and confirm serial output
 - [Agent skill](features/agent-skill.md): `install.py`, global vs project, agent behavior
-- [Container](features/container.md): test and runtime images, GHCR
+- [Container](features/container.md): test, runtime, and toolchain images, GHCR
 
 ## Source
 

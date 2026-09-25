@@ -89,4 +89,4 @@ Each of C–G, R, and I can be skipped with a `--skip-*` flag. Details: [Setup](
 | `python3 -m esp32_dev` or `esp32-dev` (no subcommand) | Prints help, exit 0 |
 | `python3 install.py` | Agent skill installer; does not install ESP-IDF |
 
-The Docker **runtime** image is this CLI only. It does not bake in ESP-IDF. See [Container](features/container.md).
+The Docker **runtime** image is this CLI only. The **toolchain** image runs `setup` into `/opt/esp32-dev` so firmware builds do not install tools again. See [Container](features/container.md).

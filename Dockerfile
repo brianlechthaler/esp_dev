@@ -21,6 +21,8 @@ COPY tests ./tests
 COPY Makefile ./
 COPY install.py ./
 COPY esp32-dev ./esp32-dev
+COPY Dockerfile compose.yaml ./
+COPY .github/workflows/container.yml .github/workflows/container.yml
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends make \
@@ -36,3 +38,47 @@ RUN pip install .
 
 ENTRYPOINT ["esp32-dev"]
 CMD ["--help"]
+
+FROM runtime AS toolchain
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    ESP32_DEV_PREFIX=/opt/esp32-dev \
+    IDF_TOOLS_PATH=/opt/esp32-dev/.espressif \
+    PLATFORMIO_CORE_DIR=/opt/esp32-dev/platformio \
+    GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0=safe.directory \
+    GIT_CONFIG_VALUE_0=*
+
+ARG IDF_TARGETS=esp32
+ENV IDF_TARGETS=${IDF_TARGETS}
+
+RUN esp32-dev setup \
+        --prefix /opt/esp32-dev \
+        --idf-targets "${IDF_TARGETS}" \
+        --skip-udev \
+        --skip-dialout \
+        --skip-shell \
+        --no-sudo \
+    && chmod -R a+rX /opt/esp32-dev \
+    && chmod +x /app/scripts/toolchain-entrypoint.sh \
+    && bash -ec '\
+        . /opt/esp32-dev/activate.sh; \
+        python -m esptool version; \
+        pio --version; \
+        idf.py --version; \
+        cargo --version; \
+        command -v esp-generate; \
+        target="${IDF_TARGETS%%,*}"; \
+        idf.py create-project --path /tmp/idf-smoke smoke; \
+        (cd /tmp/idf-smoke && idf.py set-target "$target" && idf.py build); \
+        rm -rf /tmp/idf-smoke; \
+        mkdir -p /tmp/pio-smoke/src; \
+        printf "%s\n" "[env:esp32dev]" "platform = espressif32" "board = esp32dev" "framework = arduino" > /tmp/pio-smoke/platformio.ini; \
+        printf "%s\n" "void setup(){}" "void loop(){}" > /tmp/pio-smoke/src/main.cpp; \
+        pio run -d /tmp/pio-smoke; \
+        rm -rf /tmp/pio-smoke \
+      '
+
+WORKDIR /workspace
+ENTRYPOINT ["/app/scripts/toolchain-entrypoint.sh"]
+CMD ["idf.py", "--version"]
