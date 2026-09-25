@@ -17,4 +17,5 @@ htmlcov/
 *.log
 .env
 .env.*
+!.env.example
 
