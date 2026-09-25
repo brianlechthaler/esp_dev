@@ -22,7 +22,7 @@ from esp32_dev.pins import (
     PLATFORMIO_VERSION,
     RUST_VERSION,
 )
-from esp32_dev.releases import fetch_latest_idf_release_tag
+from esp32_dev.releases import fetch_latest_idf_release_tag, require_https
 
 PIN_NAMES: tuple[str, ...] = (
     "IDF_VERSION",
@@ -75,6 +75,7 @@ def pins_path() -> Path:
 
 
 def _request(url: str) -> str:
+    require_https(url)
     request = Request(
         url,
         headers={"Accept": "application/json", "User-Agent": _USER_AGENT},

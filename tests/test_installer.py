@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
+import platform
 from pathlib import Path
 
 import pytest
 
-from esp32_dev.config import ESPTOOL_SPEC, PLATFORMIO_SPEC, RUSTUP_INIT_URL, UDEV_RULES
+from esp32_dev.config import (
+    ESPTOOL_SPEC,
+    PIP_SPEC,
+    PLATFORMIO_SPEC,
+    UDEV_RULES,
+    rustup_init_archive_url,
+    rustup_triple,
+)
 from esp32_dev.errors import SetupError
 from esp32_dev.installer import (
     ToolStatus,
@@ -46,6 +55,7 @@ from esp32_dev.installer import (
     rust_env,
     user_in_group,
     verify_ok,
+    verify_rustup_init,
 )
 from esp32_dev.pins import CARGO_CRATE_VERSIONS, RUST_VERSION
 from esp32_dev.process import CommandResult
@@ -315,7 +325,7 @@ def test_ensure_venv_reuses_existing_python(tmp_path: Path) -> None:
     python_path = ensure_venv(config, runner, FakeHost(tmp_path))
     assert python_path.is_file()
     assert not runner.has_args("/usr/bin/python3", "-m", "venv")
-    assert runner.has_args(str(python_path), "-m", "pip", "install", "--upgrade", "pip")
+    assert runner.has_args(str(python_path), "-m", "pip", "install", "--upgrade", PIP_SPEC)
 
 
 def test_ensure_venv_creates_and_upgrades_pip(tmp_path: Path) -> None:
@@ -324,7 +334,7 @@ def test_ensure_venv_creates_and_upgrades_pip(tmp_path: Path) -> None:
     python_path = ensure_venv(config, runner, FakeHost(tmp_path))
     assert python_path.is_file()
     assert runner.has_args("/usr/bin/python3", "-m", "venv")
-    assert runner.has_args(str(python_path), "-m", "pip", "install", "--upgrade", "pip")
+    assert runner.has_args(str(python_path), "-m", "pip", "install", "--upgrade", PIP_SPEC)
 
 
 def test_ensure_venv_recreates_broken_dir(tmp_path: Path) -> None:
@@ -771,8 +781,11 @@ def test_install_rust_downloads_toolchain_and_crates(tmp_path: Path) -> None:
     config = make_config(tmp_path)
     runner = FakeRunner()
     install_rust(config, runner)
-    assert runner.has_args("curl", "-sSfL", RUSTUP_INIT_URL)
-    assert any(call["args"][:2] == ["sh", "-s"] for call in runner.calls)
+    triple = rustup_triple(platform.machine())
+    archive = rustup_init_archive_url(triple)
+    assert runner.has_args("curl", "-fsSL", "--output")
+    assert any(archive in call["args"] for call in runner.calls)
+    assert any(Path(call["args"][0]).name == "rustup-init" for call in runner.calls)
     rustup = str(config.cargo_bin / "rustup")
     cargo = str(config.cargo_bin / "cargo")
     assert runner.has_args(rustup, "toolchain", "install", RUST_VERSION)
@@ -818,7 +831,7 @@ def test_install_rust_reuses_existing_bins(tmp_path: Path) -> None:
     install_rust(config, runner)
     assert not runner.has_args("curl")
     assert not runner.has_args("wget")
-    assert not any(call["args"][:2] == ["sh", "-s"] for call in runner.calls)
+    assert not any(Path(call["args"][0]).name == "rustup-init" for call in runner.calls)
     assert not runner.has_args(str(config.cargo_bin / "cargo"), "install")
     assert not runner.has_args(str(config.cargo_bin / "espup"), "install")
     assert runner.has_args(str(config.cargo_bin / "rustup"), "toolchain", "install", RUST_VERSION)
@@ -885,7 +898,7 @@ def test_install_rust_force_reinstalls(tmp_path: Path) -> None:
     runner = FakeRunner()
     install_rust(config, runner)
     cargo = str(config.cargo_bin / "cargo")
-    assert runner.has_args("curl", "-sSfL", RUSTUP_INIT_URL)
+    assert runner.has_args("curl", "-fsSL", "--output")
     assert runner.has_args(
         cargo, "install", "--locked", "--force", "--version", CARGO_CRATE_VERSIONS["espup"], "espup"
     )
@@ -897,8 +910,24 @@ def test_install_rust_wget_fallback(tmp_path: Path) -> None:
     runner = FakeRunner()
     runner.which_map["curl"] = None
     install_rust(config, runner)
-    assert runner.has_args("wget", "-qO-", RUSTUP_INIT_URL)
+    assert runner.has_args("wget", "-q", "-O")
     assert not runner.has_args("curl")
+
+
+def test_verify_rustup_init_checks_sha256(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = b"rustup-init-bytes"
+    digest = hashlib.sha256(payload).hexdigest()
+    from esp32_dev.config import RUSTUP_INIT_SHA256
+
+    monkeypatch.setitem(RUSTUP_INIT_SHA256, "x86_64-unknown-linux-gnu", digest)
+    path = tmp_path / "rustup-init"
+    path.write_bytes(payload)
+    verify_rustup_init(path, "x86_64-unknown-linux-gnu")
+    path.write_bytes(b"tampered")
+    with pytest.raises(SetupError, match="checksum mismatch"):
+        verify_rustup_init(path, "x86_64-unknown-linux-gnu")
+    with pytest.raises(SetupError, match="no rustup-init checksum"):
+        verify_rustup_init(path, "not-a-triple")
 
 
 def test_install_rust_requires_curl_or_wget(tmp_path: Path) -> None:

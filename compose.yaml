@@ -6,6 +6,13 @@ services:
       args:
         IDF_TARGETS: ${IDF_TARGETS:-esp32}
     image: esp32-dev:toolchain
+    user: "1000:1000"
     working_dir: /workspace
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 4g
+    cpus: "2"
     volumes:
       - ${FIRMWARE_DIR:-.}:/workspace

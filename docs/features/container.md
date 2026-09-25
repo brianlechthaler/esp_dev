@@ -62,7 +62,7 @@ docker run --rm --device /dev/ttyUSB0 -v "$PWD":/workspace -w /workspace \
   esp32-dev:toolchain idf.py -p /dev/ttyUSB0 flash
 ```
 
-The default user is root, so build files on the mounted directory are root-owned. `GIT_CONFIG_*` marks every directory as a safe git directory so a host-owned firmware tree still configures.
+The toolchain stage runs as uid 1000 (`esp`), not root. `GIT_CONFIG_*` marks only `/workspace` as a safe git directory so a host-owned firmware tree at that mount can still configure. Other directories stay untrusted. Compose drops all capabilities, sets `no-new-privileges`, and limits memory and CPU. Host files written by the container are owned by uid 1000.
 
 ## Published images
 

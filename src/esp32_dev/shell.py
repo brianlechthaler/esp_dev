@@ -36,6 +36,11 @@ _COMMON_RC = (
 )
 
 
+def shell_single_quote(value: str) -> str:
+    """Return ``value`` as a POSIX single-quoted literal."""
+    return "'" + value.replace("'", "'\\''") + "'"
+
+
 def login_shell_name(shell_path: str) -> str:
     """Return the lowercase basename of a shell executable path."""
     return Path(shell_path).name.lower()
@@ -50,7 +55,7 @@ def generate_activate_script(config: SetupConfig) -> str:
         "  return 0 2>/dev/null || exit 0\n"
         "fi\n"
         "ESP32_DEV_ACTIVE=1\n"
-        f'export ESP32_DEV_PREFIX="{prefix}"\n'
+        f"export ESP32_DEV_PREFIX={shell_single_quote(str(prefix))}\n"
         'if [ -f "$ESP32_DEV_PREFIX/venv/bin/activate" ]; then\n'
         "  # shellcheck disable=SC1091\n"
         '  . "$ESP32_DEV_PREFIX/venv/bin/activate"\n'
@@ -86,7 +91,7 @@ def generate_activate_fish(config: SetupConfig) -> str:
         "    return\n"
         "end\n"
         "set -gx ESP32_DEV_ACTIVE 1\n"
-        f'set -gx ESP32_DEV_PREFIX "{prefix}"\n'
+        f"set -gx ESP32_DEV_PREFIX {shell_single_quote(str(prefix))}\n"
         'if test -f "$ESP32_DEV_PREFIX/venv/bin/activate.fish"\n'
         '    source "$ESP32_DEV_PREFIX/venv/bin/activate.fish"\n'
         "end\n"
@@ -133,16 +138,16 @@ def _fish_exports_from_posix(path: Path) -> str:
 def generate_rc_hook(prefix: Path, rc: Path) -> str:
     """Return an interactive-only rc snippet for ``rc``."""
     if rc.name.endswith(".fish"):
-        script = prefix / "activate.fish"
+        script = shell_single_quote(str(prefix / "activate.fish"))
         return (
             f"{HOOK_BEGIN}\n"
-            f'if status is-interactive; and test -f "{script}"\n'
-            f'    source "{script}"\n'
+            f"if status is-interactive; and test -f {script}\n"
+            f"    source {script}\n"
             "end\n"
             f"{HOOK_END}\n"
         )
-    script = prefix / "activate.sh"
-    return f'{HOOK_BEGIN}\ncase $- in *i*) [ -f "{script}" ] && . "{script}" ;; esac\n{HOOK_END}\n'
+    script = shell_single_quote(str(prefix / "activate.sh"))
+    return f"{HOOK_BEGIN}\ncase $- in *i*) [ -f {script} ] && . {script} ;; esac\n{HOOK_END}\n"
 
 
 def rc_files_to_hook(home: Path, shell_name: str) -> list[Path]:

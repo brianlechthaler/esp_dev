@@ -251,6 +251,7 @@ def test_make_executable_sh_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     named_dir.mkdir()
     make_executable_sh_files(tmp_path)
     assert os.access(script, os.X_OK)
+    assert script.stat().st_mode & 0o111 == 0o100
     monkeypatch.setattr("esp32_dev.skill_install.os.name", "nt")
     other = tmp_path / "skip.sh"
     other.write_text("#!/bin/sh\n", encoding="utf-8")

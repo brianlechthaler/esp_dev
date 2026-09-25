@@ -233,6 +233,40 @@ def test_write_blink_project(tmp_path: Path) -> None:
         dry_run=True,
     )
     assert not (dry / "platformio.ini").exists()
+    with pytest.raises(SetupError, match="single line"):
+        write_blink_project(
+            project,
+            board="esp32dev\nplatform = https://evil.example/p.zip",
+            pin=2,
+            port="/dev/ttyUSB0",
+            usb_cdc=False,
+            dry_run=False,
+        )
+    with pytest.raises(SetupError, match="single line"):
+        resolve_blink_target("ESP32", "board\ninjected", None)
+    with pytest.raises(SetupError, match="single line"):
+        resolve_blink_target("ESP32-P4", "board\ninjected", 2)
+    with pytest.raises(SetupError, match="single line"):
+        write_blink_project(
+            project,
+            board="esp32dev",
+            pin=2,
+            port="/dev/ttyUSB0\n",
+            usb_cdc=False,
+            dry_run=True,
+        )
+    with pytest.raises(SetupError, match="single line"):
+        write_blink_project(
+            project,
+            board="esp32dev",
+            pin=2,
+            port="/dev/ttyUSB0",
+            usb_cdc=False,
+            dry_run=True,
+            platform="espressif32\nextra",
+        )
+    with pytest.raises(SetupError, match="single line"):
+        resolve_serial_port("/dev/tty\nUSB0")
 
 
 def test_blink_console_ok() -> None:

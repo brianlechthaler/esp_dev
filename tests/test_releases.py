@@ -12,6 +12,7 @@ from esp32_dev.releases import (
     GITHUB_IDF_LATEST_RELEASE_URL,
     fetch_latest_idf_release_tag,
     is_latest_alias,
+    require_https,
     resolve_idf_version,
 )
 
@@ -28,6 +29,14 @@ class FakeResponse:
 
     def __exit__(self, *_args: object) -> None:
         return None
+
+
+def test_require_https_rejects_other_schemes() -> None:
+    assert require_https("https://example.test/idf") == "https://example.test/idf"
+    with pytest.raises(SetupError, match="non-https"):
+        require_https("file:///tmp/pins")
+    with pytest.raises(SetupError, match="non-https"):
+        fetch_latest_idf_release_tag("http://example.test/latest")
 
 
 def test_is_latest_alias() -> None:
