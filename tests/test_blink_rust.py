@@ -119,5 +119,11 @@ def test_esp_hal_runtime_feature_stays_on() -> None:
         assert 'default-features = false, features = ["rt"]' in cargo
 
 
+def test_test_image_contains_the_blink_source() -> None:
+    text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    test_stage = text.split("FROM base AS test", 1)[1].split("FROM base AS runtime", 1)[0]
+    assert "COPY firmware ./firmware" in test_stage
+
+
 def test_chip_feature_is_required() -> None:
     assert 'compile_error!("enable exactly one chip feature")' in MAIN
