@@ -1,0 +1,30 @@
+[package]
+edition = "2024"
+name = "blink"
+rust-version = "1.95"
+version = "0.1.0"
+
+[[bin]]
+name = "blink"
+path = "../src/main.rs"
+
+[features]
+default = ["esp32"]
+esp32 = ["esp-hal/esp32", "esp-bootloader-esp-idf/esp32", "esp-println/esp32", "esp-println/uart"]
+esp32s2 = ["esp-hal/esp32s2", "esp-bootloader-esp-idf/esp32s2", "esp-println/esp32s2", "esp-println/uart"]
+esp32s3 = ["esp-hal/esp32s3", "esp-bootloader-esp-idf/esp32s3", "esp-println/esp32s3", "esp-println/jtag-serial"]
+
+[dependencies]
+esp-hal = { version = "~1.2.2", default-features = false, features = ["rt"] }
+esp-bootloader-esp-idf = { version = "0.6.0", default-features = false }
+esp-println = { version = "0.18.0", default-features = false }
+critical-section = "1.2.0"
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug = 2
+lto = "fat"
+opt-level = "s"

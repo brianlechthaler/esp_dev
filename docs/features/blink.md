@@ -91,6 +91,7 @@ sequenceDiagram
 
 ## Related
 
+- [Rust blink](rust-blink.md)
 - [Setup](setup.md)
 - [Getting started](../getting-started.md)
 - [Agent skill](agent-skill.md)

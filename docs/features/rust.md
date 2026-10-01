@@ -74,6 +74,7 @@ flowchart LR
 
 ## Related
 
+- [Rust blink](rust-blink.md)
 - [Setup](setup.md)
 - [Getting started](../getting-started.md)
 - [Toolchain Installation](https://docs.espressif.com/projects/rust/book/getting-started/toolchain.html)

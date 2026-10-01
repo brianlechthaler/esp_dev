@@ -18,6 +18,7 @@ RUN pip install --upgrade pip
 FROM base AS test
 
 COPY tests ./tests
+COPY firmware ./firmware
 COPY Makefile ./
 COPY install.py ./
 COPY esp32-dev ./esp32-dev
