@@ -86,6 +86,7 @@ Each of C–G, R, and I can be skipped with a `--skip-*` flag. Details: [Setup](
 | `./scripts/setup-esp32-dev.sh` (no args) | Runs `python3 -m esp32_dev setup` |
 | `./scripts/setup-esp32-dev.sh <args>` | Passes args through to `python3 -m esp32_dev` |
 | `./scripts/blink-esp32.sh` | `python3 -m esp32_dev blink` |
+| `./scripts/remote-build.sh` | SSH to a host and `docker run` the toolchain image |
 | `python3 -m esp32_dev` or `esp32-dev` (no subcommand) | Prints help, exit 0 |
 | `python3 install.py` | Agent skill installer; does not install ESP-IDF |
 

@@ -84,6 +84,8 @@ docker run --rm -v "$PWD":/workspace -w /workspace \
   ghcr.io/brianlechthaler/esp_dev-toolchain:main idf.py build
 ```
 
+`scripts/remote-build.sh` runs that toolchain image on another host over SSH. See [Remote build](remote-build.md). The `esp_dev` image (tags such as `70294c6`) is the installer CLI, not the build image.
+
 Image names follow the GitHub repository (`brianlechthaler/esp_dev`). GHCR may lowercase the path. A new GHCR package can stay private until it is linked to the repo (Packages, package settings, Manage Actions access).
 
 ```mermaid
