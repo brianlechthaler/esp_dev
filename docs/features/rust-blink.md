@@ -59,6 +59,10 @@ Remote build with [remote-build.sh](remote-build.md):
   -- cargo build --release --no-default-features --features esp32s3 --target xtensa-esp32s3-none-elf
 ```
 
+## On-device status
+
+ESP32-S3 and ESP32-C5 are the only chips that have been flashed and checked for `LED on` and `LED off`. ESP32, ESP32-S2, ESP32-C2, ESP32-C3, ESP32-C6, and ESP32-H2 remain untested on hardware, as do the ESP32-only ESP-IDF and PlatformIO smoke projects.
+
 ## Related
 
 - [Blink](blink.md)
