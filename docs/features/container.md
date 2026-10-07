@@ -15,7 +15,7 @@ The [Dockerfile](../../Dockerfile) has four stages:
 
 The **runtime** image does not include ESP-IDF, PlatformIO platforms, Rust/espup, or a pre-built prefix. It is the installer CLI.
 
-The **toolchain** image runs `esp32-dev setup` at build time. The prefix is `/opt/esp32-dev`. ESP-IDF tools go to `/opt/esp32-dev/.espressif` (`IDF_TOOLS_PATH`). PlatformIO packages go to `/opt/esp32-dev/platformio` (`PLATFORMIO_CORE_DIR`). The image build also compiles a tiny ESP-IDF project and a tiny PlatformIO `esp32dev` Arduino sketch, then deletes those trees, so the compilers and PlatformIO packages are already on disk. The entrypoint puts the ESP-IDF `xtensa-esp32-elf-gcc` ahead of the copy installed by espup, because ESP-IDF rejects the older espup gcc. udev rules, `dialout`, and shell rc hooks are skipped: serial access stays on the host. Pass `--device` when you need to flash.
+The **toolchain** image runs `esp32-dev setup` at build time. CI passes `GITHUB_TOKEN` as a BuildKit secret named `GITHUB_TOKEN` so `espup` can read the Xtensa Rust release from the GitHub API. The secret is not written into the image. A local build without that secret still runs setup. The prefix is `/opt/esp32-dev`. ESP-IDF tools go to `/opt/esp32-dev/.espressif` (`IDF_TOOLS_PATH`). PlatformIO packages go to `/opt/esp32-dev/platformio` (`PLATFORMIO_CORE_DIR`). The image build also compiles a tiny ESP-IDF project and a tiny PlatformIO `esp32dev` Arduino sketch, then deletes those trees, so the compilers and PlatformIO packages are already on disk. The entrypoint puts the ESP-IDF `xtensa-esp32-elf-gcc` ahead of the copy installed by espup, because ESP-IDF rejects the older espup gcc. udev rules, `dialout`, and shell rc hooks are skipped: serial access stays on the host. Pass `--device` when you need to flash.
 
 Build arg `IDF_TARGETS` (default `esp32`) is passed to `setup --idf-targets`. The PlatformIO warm-up is always the `esp32dev` Arduino board.
 
@@ -83,6 +83,8 @@ docker pull ghcr.io/brianlechthaler/esp_dev-toolchain:main
 docker run --rm -v "$PWD":/workspace -w /workspace \
   ghcr.io/brianlechthaler/esp_dev-toolchain:main idf.py build
 ```
+
+`scripts/remote-build.sh` runs that toolchain image on another host over SSH. See [Remote build](remote-build.md). The `esp_dev` image (tags such as `70294c6`) is the installer CLI, not the build image.
 
 Image names follow the GitHub repository (`brianlechthaler/esp_dev`). GHCR may lowercase the path. A new GHCR package can stay private until it is linked to the repo (Packages, package settings, Manage Actions access).
 

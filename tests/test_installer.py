@@ -767,6 +767,12 @@ def test_rust_env_sets_homes_and_path(tmp_path: Path) -> None:
     assert env["PATH"].startswith(str(config.cargo_bin) + os.pathsep)
 
 
+def test_rust_env_forwards_github_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    env = rust_env(make_config(tmp_path))
+    assert env["GITHUB_TOKEN"] == "test-token"
+
+
 def test_install_rust_downloads_toolchain_and_crates(tmp_path: Path) -> None:
     config = make_config(tmp_path)
     runner = FakeRunner()

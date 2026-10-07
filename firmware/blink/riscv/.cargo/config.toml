@@ -1,0 +1,14 @@
+# Keep compilation settings in this file and user/runtime settings in `esp-config.toml`.
+include = ["esp-config.toml"]
+
+[target.riscv32imc-unknown-none-elf]
+rustflags = ["-C", "force-frame-pointers"]
+
+[target.riscv32imac-unknown-none-elf]
+rustflags = ["-C", "force-frame-pointers"]
+
+[build]
+target = "riscv32imc-unknown-none-elf"
+
+[unstable]
+build-std = ["core"]
