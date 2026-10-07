@@ -17,6 +17,8 @@ def test_dockerfile_toolchain_stage_runs_setup() -> None:
     assert "--skip-dialout" in stage
     assert "--skip-shell" in stage
     assert "--no-sudo" in stage
+    assert "--mount=type=secret,id=GITHUB_TOKEN,required=false" in stage
+    assert 'export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"' in stage
     assert "IDF_TOOLS_PATH=/opt/esp32-dev/.espressif" in stage
     assert "PLATFORMIO_CORE_DIR=/opt/esp32-dev/platformio" in stage
     assert 'ENTRYPOINT ["/app/scripts/toolchain-entrypoint.sh"]' in stage
@@ -38,6 +40,7 @@ def test_container_workflow_publishes_toolchain_image() -> None:
     assert "push: ${{ github.event_name != 'pull_request' }}" in text
     assert "linux/amd64" in text
     assert "linux/arm64" in text
+    assert "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" in text
 
 
 def test_compose_firmware_service_uses_toolchain_stage() -> None:

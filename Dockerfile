@@ -53,7 +53,14 @@ ENV DEBIAN_FRONTEND=noninteractive \
 ARG IDF_TARGETS=esp32
 ENV IDF_TARGETS=${IDF_TARGETS}
 
-RUN esp32-dev setup \
+# espup looks up the Xtensa Rust release on api.github.com. Unauthenticated
+# calls from GitHub-hosted runners return 403. The token is a BuildKit secret
+# so it is not stored in the image. Local builds omit the secret.
+RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
+    if [ -s /run/secrets/GITHUB_TOKEN ]; then \
+        export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; \
+    fi \
+    && esp32-dev setup \
         --prefix /opt/esp32-dev \
         --idf-targets "${IDF_TARGETS}" \
         --skip-udev \

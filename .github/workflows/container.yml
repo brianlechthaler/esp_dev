@@ -113,6 +113,8 @@ jobs:
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
           cache-from: type=gha,scope=toolchain-${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,scope=toolchain-${{ env.PLATFORM_PAIR }},mode=max
+          secrets: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
 
       - name: Export digest
         if: github.event_name != 'pull_request'
